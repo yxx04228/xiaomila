@@ -1,0 +1,34 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/music_website?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+  web:
+    resources:
+      static-locations:
+        - "classpath:/static/"
+        - "file:${music.file.path}"
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: org.xioamila.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+music:
+  file:
+    path: /music_files/
+
+jwt:
+  secret: WzQ2NUJCN0YtN0NBRC00RjM2LUE4QjAtQkU1M0YyRjcyQkI5XSpbeyMkJV8rPUA/Klx4LWBeITom
+  expiration: 86400000

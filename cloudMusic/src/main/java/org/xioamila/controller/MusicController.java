@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.xioamila.entity.Music;
 import org.xioamila.service.MusicService;
+import org.xioamila.vo.Result;
 
 @Slf4j
 @RestController
@@ -33,9 +34,9 @@ public class MusicController {
     @Parameters({
             @Parameter(name = "title", description = "歌曲标题", in = ParameterIn.QUERY, schema = @Schema(type = "string"))
     })
-    public IPage<Music> getPageList(@RequestParam(required = false) String title,
-                                    @Parameter(description = "当前页数") @RequestParam(defaultValue = "1") Integer nCurrent,
-                                    @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer nSize) {
+    public Result<IPage<Music>> getPageList(@RequestParam(required = false) String title,
+                                           @Parameter(description = "当前页数") @RequestParam(defaultValue = "1") Integer nCurrent,
+                                           @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer nSize) {
 
         QueryWrapper<Music> queryWrapper = new QueryWrapper<>();
 
@@ -44,12 +45,12 @@ public class MusicController {
         }
         queryWrapper.orderByDesc("create_time");
         IPage<Music> pageList = musicService.page(new Page<>(nCurrent, nSize), queryWrapper);
-        return pageList;
+        return Result.data(pageList);
     }
 
     @Operation(summary = "音乐文件上传")
     @PostMapping(value = "/upload")
-    public String uploadMusic(
+    public Result<String> uploadMusic(
             @Parameter(description = "音乐文件") @RequestParam("file") MultipartFile file,
             @Parameter(description = "标题") @RequestParam String title,
             @Parameter(description = "歌手") @RequestParam String singer,

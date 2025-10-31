@@ -12,10 +12,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import org.xioamila.entity.Dto.LoginDto;
+import org.xioamila.dto.LoginDto;
+import org.xioamila.dto.RegisterDto;
 import org.xioamila.entity.User;
-import org.xioamila.entity.Vo.LoginVo;
-import org.xioamila.service.impl.UserService;
+import org.xioamila.vo.LoginVo;
+import org.xioamila.vo.Result;
+import org.xioamila.service.UserService;
+
+import javax.validation.Valid;
 
 @RestController
 @RequestMapping("/user")
@@ -27,14 +31,14 @@ public class UserController {
 
     @PostMapping("/login")
     @Operation(summary = "用户登录")
-    public LoginVo login(@RequestBody LoginDto loginDTO) {
-        return userService.login(loginDTO);
+    public Result<LoginVo> login(@RequestBody LoginDto loginDto) {
+        return userService.login(loginDto);
     }
 
     @PostMapping("/register")
     @Operation(summary = "用户注册")
-    public boolean register(@RequestBody User user) {
-        return userService.register(user);
+    public Result<Object> register(@Valid @RequestBody RegisterDto registerDto) {
+        return userService.register(registerDto);
     }
 
     @Operation(summary = "用户列表查询")
@@ -42,7 +46,7 @@ public class UserController {
     @Parameters({
             @Parameter(name = "nickname", description = "用户昵称", in = ParameterIn.QUERY, schema = @Schema(type = "string"))
     })
-    public IPage<User> getPageList(@RequestParam(required = false) String nickname,
+    public Result<IPage<User>> getPageList(@RequestParam(required = false) String nickname,
                                     @Parameter(description = "当前页数") @RequestParam(defaultValue = "1") Integer nCurrent,
                                     @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer nSize) {
 
@@ -53,20 +57,18 @@ public class UserController {
         }
         queryWrapper.orderByDesc("create_time");
         IPage<User> pageList = userService.page(new Page<>(nCurrent, nSize), queryWrapper);
-        return pageList;
+        return Result.success("查询成功", pageList);
     }
 
     @PutMapping("/update")
     @Operation(summary = "更新用户信息")
-    public boolean updateUser(@RequestBody User user) {
-        return userService.saveOrUpdate(user);
+    public Result<Boolean> updateUser(@RequestBody User user) {
+        return Result.data(userService.updateUser(user));
     }
 
     @DeleteMapping("/delete")
     @Operation(summary = "删除用户")
-    public boolean deleteUser(@Parameter(description = "用户ID") @RequestParam("id") String id) {
-        return userService.removeById(id);
+    public Result<Boolean> deleteUser(@Parameter(description = "用户ID") @RequestParam("id") String id) {
+        return Result.data(userService.removeById(id));
     }
-
-
 }
