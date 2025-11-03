@@ -9,6 +9,8 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.xioamila.common.utils.SecurityUtil;
+import org.xioamila.common.utils.TokenInfo;
 import org.xioamila.dto.LoginDto;
 import org.xioamila.dto.RegisterDto;
 import org.xioamila.entity.User;
@@ -16,7 +18,6 @@ import org.xioamila.vo.LoginVo;
 import org.xioamila.vo.Result;
 import org.xioamila.mapper.UserMapper;
 import org.xioamila.service.UserService;
-import org.xioamila.common.jwt.JwtUtil;
 import org.xioamila.common.utils.PasswordUtil;
 
 @Slf4j
@@ -25,8 +26,6 @@ import org.xioamila.common.utils.PasswordUtil;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
     private PasswordUtil passwordUtil;
-
-    private JwtUtil jwtUtil;
 
     @Override
     public Result<LoginVo> login(LoginDto loginDto) {
@@ -46,16 +45,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
 
             // 生成JWT令牌
-            String token = jwtUtil.generateToken(user.getUsername(), user.getId());
+            TokenInfo tokenInfo = SecurityUtil.createJWT(user);
 
             // 构建返回数据
             LoginVo loginVo = new LoginVo();
             loginVo.setId(user.getId().toString());
             loginVo.setUsername(user.getUsername());
             loginVo.setNickname(user.getNickname());
-            loginVo.setToken(token);
-            loginVo.setTokenType("Bearer");
-            loginVo.setExpiresIn(jwtUtil.getExpirationInSeconds());
+            loginVo.setToken(tokenInfo.getToken());
+            loginVo.setExpiresIn(tokenInfo.getExpire());
 
             return Result.success("登录成功", loginVo);
 
@@ -106,6 +104,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     @Transactional
     public boolean updateUser(User user) {
+
         if (StringUtils.isEmpty(user.getId())) {
             throw new ServiceException("用户ID不能为空");
         }

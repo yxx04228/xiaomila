@@ -19,9 +19,6 @@ public class LoginVo {
     @Schema(description = "JWT令牌")
     private String token;
 
-    @Schema(description = "令牌类型")
-    private String tokenType = "Bearer";
-
     @Schema(description = "过期时间")
     private Long expiresIn;
 }
