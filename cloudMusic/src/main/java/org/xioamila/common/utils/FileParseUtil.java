@@ -8,20 +8,23 @@ import org.jaudiotagger.audio.exceptions.CannotReadException;
 import org.jaudiotagger.audio.exceptions.InvalidAudioFrameException;
 import org.jaudiotagger.audio.exceptions.ReadOnlyFileException;
 import org.jaudiotagger.tag.TagException;
+import org.springframework.core.io.AbstractResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import org.xioamila.entity.Music;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.text.DecimalFormat;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -244,6 +247,175 @@ public class FileParseUtil {
             log.error("创建下载响应失败: {}", file.getAbsolutePath(), e);
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    /**
+     * 创建音乐播放响应
+     * @param file 音频文件对象
+     * @param music 音乐信息（用于获取元数据）
+     * @param request HTTP请求（用于处理Range请求）
+     * @return ResponseEntity<Resource> 播放响应
+     */
+    public static ResponseEntity<Resource> createPlayResponse(File file, Music music, HttpServletRequest request) {
+        try {
+            // 验证文件是否存在且可读
+            if (!file.exists() || !file.canRead()) {
+                log.warn("文件不存在或不可读: {}", file.getAbsolutePath());
+                return ResponseEntity.notFound().build();
+            }
+
+            // 创建文件资源
+            FileSystemResource resource = new FileSystemResource(file);
+
+            // 设置响应头
+            HttpHeaders headers = new HttpHeaders();
+
+            // 内嵌播放，而不是下载
+            String fileName = generateSafeFileName(music.getTitle(), music.getSinger(), music.getFileType());
+            headers.add(HttpHeaders.CONTENT_DISPOSITION,
+                    "inline; filename=\"" + URLEncoder.encode(fileName, StandardCharsets.UTF_8.toString()) + "\"");
+
+            // 支持断点续传
+            headers.add(HttpHeaders.ACCEPT_RANGES, "bytes");
+
+            // 缓存控制 - 允许缓存以提高性能
+            headers.add(HttpHeaders.CACHE_CONTROL, "public, max-age=3600");
+            headers.add(HttpHeaders.EXPIRES, String.valueOf(System.currentTimeMillis() + 3600000));
+
+            // 获取音频文件的正确MIME类型
+            String mimeType = getMimeType(music.getFileType());
+
+            // 处理Range请求（支持断点续传）
+            long fileLength = file.length();
+            String rangeHeader = request.getHeader(HttpHeaders.RANGE);
+
+            if (StringUtils.hasText(rangeHeader)) {
+                return handleRangeRequest(file, resource, headers, mimeType, fileLength, rangeHeader);
+            }
+
+            log.info("音乐播放: {} -> {} (MIME: {}, Size: {})",
+                    file.getAbsolutePath(), fileName, mimeType, formatFileSize(fileLength));
+
+            // 完整文件响应
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentLength(fileLength)
+                    .contentType(MediaType.parseMediaType(mimeType))
+                    .body(resource);
+
+        } catch (Exception e) {
+            log.error("创建播放响应失败: {}", file.getAbsolutePath(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * 处理Range请求（断点续传）
+     */
+    private static ResponseEntity<Resource> handleRangeRequest(File file, FileSystemResource resource,
+                                                               HttpHeaders headers, String mimeType,
+                                                               long fileLength, String rangeHeader) {
+        try {
+            // 解析Range头
+            List<HttpRange> ranges = HttpRange.parseRanges(rangeHeader);
+            if (ranges.size() != 1) {
+                log.warn("不支持的多范围请求: {}", rangeHeader);
+                return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE).build();
+            }
+
+            HttpRange range = ranges.get(0);
+            long start = range.getRangeStart(fileLength);
+            long end = range.getRangeEnd(fileLength);
+            long rangeLength = end - start + 1;
+
+            // 验证范围有效性
+            if (start >= fileLength || end >= fileLength || start > end) {
+                log.warn("无效的范围请求: {}-{}/{}", start, end, fileLength);
+                headers.add(HttpHeaders.CONTENT_RANGE, "bytes */" + fileLength);
+                return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                        .headers(headers)
+                        .build();
+            }
+
+            // 设置范围响应头
+            headers.add(HttpHeaders.CONTENT_RANGE, "bytes " + start + "-" + end + "/" + fileLength);
+            headers.setContentLength(rangeLength);
+
+            log.info("处理范围请求: {}-{}/{} ({}%)",
+                    start, end, fileLength, (rangeLength * 100 / fileLength));
+
+            // 创建范围资源（需要自定义Resource实现来支持范围读取）
+            return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
+                    .headers(headers)
+                    .contentType(MediaType.parseMediaType(mimeType))
+                    .body(createRangeResource(file, start, rangeLength));
+
+        } catch (IllegalArgumentException e) {
+            log.warn("无效的Range头: {}", rangeHeader, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * 创建支持范围读取的资源
+     */
+    private static Resource createRangeResource(File file, long start, long length) {
+        return new AbstractResource() {
+            @Override
+            public String getDescription() {
+                return "Range resource for file: " + file.getName();
+            }
+
+            @Override
+            public InputStream getInputStream() throws IOException {
+                RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r");
+                randomAccessFile.seek(start);
+
+                return new InputStream() {
+                    private long bytesRead = 0;
+
+                    @Override
+                    public int read() throws IOException {
+                        if (bytesRead >= length) {
+                            return -1;
+                        }
+                        int result = randomAccessFile.read();
+                        if (result != -1) {
+                            bytesRead++;
+                        }
+                        return result;
+                    }
+
+                    @Override
+                    public int read(byte[] b, int off, int len) throws IOException {
+                        if (bytesRead >= length) {
+                            return -1;
+                        }
+                        int maxRead = (int) Math.min(len, length - bytesRead);
+                        int read = randomAccessFile.read(b, off, maxRead);
+                        if (read != -1) {
+                            bytesRead += read;
+                        }
+                        return read;
+                    }
+
+                    @Override
+                    public void close() throws IOException {
+                        randomAccessFile.close();
+                    }
+                };
+            }
+
+            @Override
+            public long contentLength() {
+                return length;
+            }
+
+            @Override
+            public String getFilename() {
+                return file.getName();
+            }
+        };
     }
 
     /**

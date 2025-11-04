@@ -7,6 +7,8 @@ import org.springframework.web.multipart.MultipartFile;
 import org.xioamila.entity.Music;
 import org.xioamila.vo.Result;
 
+import javax.servlet.http.HttpServletRequest;
+
 public interface MusicService extends IService<Music> {
 
     /**
@@ -18,4 +20,9 @@ public interface MusicService extends IService<Music> {
      * 下载音乐文件
      */
     ResponseEntity<Resource> downloadMusic(String id);
+
+    /**
+     * 播放音乐文件
+     */
+    ResponseEntity<Resource> playMusic(String id, HttpServletRequest request);
 }

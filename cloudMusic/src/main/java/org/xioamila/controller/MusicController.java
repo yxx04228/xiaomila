@@ -20,6 +20,8 @@ import org.xioamila.entity.Music;
 import org.xioamila.service.MusicService;
 import org.xioamila.vo.Result;
 
+import javax.servlet.http.HttpServletRequest;
+
 @Slf4j
 @RestController
 @RequestMapping("/music")
@@ -62,5 +64,11 @@ public class MusicController {
     @GetMapping(value = "/download")
     public ResponseEntity<Resource> download(@Parameter(description = "文件ID") @RequestParam("id") String id) {
         return musicService.downloadMusic(id);
+    }
+
+    @Operation(summary = "音乐播放")
+    @GetMapping(value = "/play")
+    public ResponseEntity<Resource> play(@Parameter(description = "文件ID") @RequestParam("id") String id, HttpServletRequest request) {
+        return musicService.playMusic(id, request);
     }
 }

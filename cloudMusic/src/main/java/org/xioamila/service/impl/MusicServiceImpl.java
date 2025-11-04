@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +16,9 @@ import org.xioamila.service.MusicService;
 import org.xioamila.common.utils.FileParseUtil;
 import org.xioamila.vo.Result;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
@@ -132,6 +135,41 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
 
         } catch (Exception e) {
             log.error("下载音乐文件失败, id: {}", id, e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @Override
+    public ResponseEntity<Resource> playMusic(String id, HttpServletRequest request) {
+        try {
+            // 1. 查询音乐信息
+            Music music = this.getById(id);
+            if (music == null) {
+                log.warn("音乐文件不存在, id: {}", id);
+                return ResponseEntity.notFound().build();
+            }
+
+            // 2. 验证文件路径
+            String filePath = music.getFilePath();
+            if (filePath == null || filePath.trim().isEmpty()) {
+                log.warn("音乐文件路径为空, id: {}", id);
+                return ResponseEntity.notFound().build();
+            }
+
+            // 3. 创建文件对象并验证
+            File file = new File(filePath);
+            if (!file.exists() || !file.isFile()) {
+                log.warn("音乐文件不存在或不是文件, path: {}, id: {}", filePath, id);
+                return ResponseEntity.notFound().build();
+            }
+
+            log.info("准备播放音乐: {} -> {}", music.getTitle(), filePath);
+
+            // 4. 使用工具类创建播放响应
+            return FileParseUtil.createPlayResponse(file, music, request);
+
+        } catch (Exception e) {
+            log.error("播放音乐文件失败, id: {}", id, e);
             return ResponseEntity.internalServerError().build();
         }
     }

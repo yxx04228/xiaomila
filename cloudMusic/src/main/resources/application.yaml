@@ -24,6 +24,10 @@ mybatis-plus:
   type-aliases-package: org.xioamila.entity
   configuration:
     map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      db-type: mysql
 
 music:
   file:
