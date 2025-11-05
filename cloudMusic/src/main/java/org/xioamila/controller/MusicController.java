@@ -70,6 +70,6 @@ public class MusicController {
     @DeleteMapping("/delete")
     @Operation(summary = "删除音乐")
     public Result<Boolean> deleteUser(@Parameter(description = "音乐ID") @RequestParam("id") String id) {
-        return Result.data(musicService.removeById(id));
+        return Result.data(musicService.deleteMusic(id));
     }
 }

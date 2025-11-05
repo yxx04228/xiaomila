@@ -44,6 +44,12 @@ public class Music extends BaseEntity {
     private String filePath;
 
     /**
+     * 音乐文件名称
+     */
+    @Schema(description = "音乐文件名称")
+    private String fileName;
+
+    /**
      * 文件大小
      */
     @Schema(description = "文件大小")

@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.greatmap.modules.core.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,9 @@ import org.xioamila.common.utils.FileParseUtil;
 import javax.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.UUID;
 
@@ -60,6 +64,7 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
             String duration = (String) fileInfo.get("duration");
             String title = (String) fileInfo.get("title");
             String singer = (String) fileInfo.get("singer");
+            String fileName = singer + " - " + title;
 
             // 验证是否已存在该歌曲（title + singer）
             LambdaQueryWrapper<Music> queryWrapper = Wrappers.lambdaQuery(Music.class)
@@ -76,10 +81,10 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
             String absoluteMusicPath = new File(projectRoot, musicFilePath).getAbsolutePath();
 
             // 生成唯一文件名
-            String fileName = UUID.randomUUID().toString() + "." + fileExtension;
+            String filePath = UUID.randomUUID().toString() + "." + fileExtension;
 
             // 保存文件
-            File saveFile = new File(absoluteMusicPath + File.separator + fileName);
+            File saveFile = new File(absoluteMusicPath + File.separator + filePath);
             if (!saveFile.getParentFile().exists()) {
                 saveFile.getParentFile().mkdirs();
             }
@@ -91,7 +96,8 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
             music.setSinger(singer);
             music.setDuration(duration);
             music.setFileType(fileExtension);
-            music.setFilePath(saveFile.getAbsolutePath());
+            music.setFilePath(filePath);
+            music.setFileName(fileName);
             music.setFileSize(formattedFileSize);
             music.setPlayCount(0);
 
@@ -121,28 +127,33 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
     @Override
     public ResponseEntity<Resource> downloadMusic(String id) {
         try {
-            // 1. 查询音乐信息
+            // 查询音乐信息
             Music music = this.getById(id);
             if (music == null) {
                 log.warn("音乐文件不存在, id: {}", id);
                 return ResponseEntity.notFound().build();
             }
 
-            // 2. 验证文件路径
+            // 验证文件路径
             String filePath = music.getFilePath();
             if (filePath == null || filePath.trim().isEmpty()) {
                 log.warn("音乐文件路径为空, id: {}", id);
                 return ResponseEntity.notFound().build();
             }
 
-            // 3. 创建文件对象并验证
+            // 获取文件的绝对路径
+            String projectRoot = System.getProperty("user.dir");
+            String absoluteMusicPath = new File(projectRoot, musicFilePath).getAbsolutePath();
+            filePath = absoluteMusicPath + File.separator + filePath;
+
+            // 创建文件对象并验证
             File file = new File(filePath);
             if (!FileParseUtil.isAudioFile(file)) {
                 log.warn("音乐文件无效, path: {}, id: {}", filePath, id);
                 return ResponseEntity.notFound().build();
             }
 
-            // 4. 生成安全的文件名
+            // 生成安全的文件名
             String fileName = FileParseUtil.generateSafeFileName(
                     music.getTitle(),
                     music.getSinger(),
@@ -151,7 +162,7 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
 
             log.info("准备下载文件: {} -> {}", filePath, fileName);
 
-            // 5. 创建下载响应
+            // 创建下载响应
             return FileParseUtil.createDownloadResponse(file, fileName);
 
         } catch (Exception e) {
@@ -163,21 +174,26 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
     @Override
     public ResponseEntity<Resource> playMusic(String id, HttpServletRequest request) {
         try {
-            // 1. 查询音乐信息
+            // 查询音乐信息
             Music music = this.getById(id);
             if (music == null) {
                 log.warn("音乐文件不存在, id: {}", id);
                 return ResponseEntity.notFound().build();
             }
 
-            // 2. 验证文件路径
+            // 验证文件路径
             String filePath = music.getFilePath();
             if (filePath == null || filePath.trim().isEmpty()) {
                 log.warn("音乐文件路径为空, id: {}", id);
                 return ResponseEntity.notFound().build();
             }
 
-            // 3. 创建文件对象并验证
+            // 获取文件的绝对路径
+            String projectRoot = System.getProperty("user.dir");
+            String absoluteMusicPath = new File(projectRoot, musicFilePath).getAbsolutePath();
+            filePath = absoluteMusicPath + File.separator + filePath;
+
+            // 创建文件对象并验证
             File file = new File(filePath);
             if (!file.exists() || !file.isFile()) {
                 log.warn("音乐文件不存在或不是文件, path: {}, id: {}", filePath, id);
@@ -186,7 +202,7 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
 
             log.info("准备播放音乐: {} -> {}", music.getTitle(), filePath);
 
-            // 4. 使用工具类创建播放响应
+            // 使用工具类创建播放响应
             return FileParseUtil.createPlayResponse(file, music, request);
 
         } catch (Exception e) {
@@ -201,7 +217,8 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
         // 验证是否已存在该歌曲（title + singer）
         LambdaQueryWrapper<Music> queryWrapper = Wrappers.lambdaQuery(Music.class)
                 .eq(Music::getTitle, music.getTitle())
-                .eq(Music::getSinger, music.getSinger());
+                .eq(Music::getSinger, music.getSinger())
+                .ne(Music::getId, music.getId());
 
         long count = musicMapper.selectCount(queryWrapper);
         if (count > 0) {
@@ -209,5 +226,67 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
         }
 
         return this.updateById(music);
+    }
+
+    @Override
+    @Transactional
+    public boolean deleteMusic(String id) {
+        // 查询音乐信息，获取文件路径
+        Music music = this.getById(id);
+        if (music == null) {
+            throw new ServiceException("音乐文件不存在");
+        }
+
+        try {
+            // 删除物理文件
+            deleteMusicFile(music.getFilePath());
+
+            // 删除数据库记录
+            return this.removeById(id);
+
+        } catch (ServiceException e) {
+            log.error("删除音乐失败 - ID: {}, 错误: {}", id, e.getMessage());
+            throw e; // 重新抛出，触发事务回滚
+        }
+    }
+
+    /**
+     * 删除文件 - 失败时抛出异常，触发事务回滚
+     */
+    private void deleteMusicFile(String filePath) throws ServiceException {
+        try {
+            if (StringUtils.isBlank(filePath)) {
+                return; // 没有文件路径，直接返回
+            }
+
+            // 获取项目的绝对基础路径
+            String projectRoot = System.getProperty("user.dir");
+            String absoluteMusicPath = new File(projectRoot, musicFilePath).getAbsolutePath();
+            Path basePath = Paths.get(absoluteMusicPath).toAbsolutePath().normalize();
+
+            // 构建完整文件路径
+            Path fileFullPath = basePath.resolve(filePath).normalize();
+
+            // 路径安全检查 - 修正：比较两个绝对路径
+            if (!fileFullPath.startsWith(basePath)) {
+                log.error("非法文件路径尝试: basePath={}, filePath={}", basePath, fileFullPath);
+                throw new ServiceException("非法文件路径: " + filePath);
+            }
+
+            // 检查文件是否存在且是普通文件
+            if (Files.exists(fileFullPath) && !Files.isRegularFile(fileFullPath)) {
+                throw new ServiceException("目标路径不是普通文件: " + filePath);
+            }
+
+            boolean deleted = Files.deleteIfExists(fileFullPath);
+            if (!deleted) {
+                log.warn("音乐文件不存在: {}", fileFullPath);
+            }
+            log.info("音乐文件删除成功: {}", fileFullPath);
+
+        } catch (IOException e) {
+            log.error("删除音乐文件失败: {}", filePath, e);
+            throw new ServiceException("删除音乐文件失败: " + e.getMessage(), e);
+        }
     }
 }

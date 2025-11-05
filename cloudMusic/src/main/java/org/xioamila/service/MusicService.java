@@ -35,4 +35,9 @@ public interface MusicService extends IService<Music> {
      * 更新音乐信息
      */
     boolean updateMusic(Music music);
+
+    /**
+     * 删除音乐
+     */
+    boolean deleteMusic(String id);
 }
