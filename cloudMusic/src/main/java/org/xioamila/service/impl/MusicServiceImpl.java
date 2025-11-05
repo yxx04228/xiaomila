@@ -2,6 +2,7 @@ package org.xioamila.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.greatmap.modules.core.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,6 @@ import org.xioamila.entity.Music;
 import org.xioamila.mapper.MusicMapper;
 import org.xioamila.service.MusicService;
 import org.xioamila.common.utils.FileParseUtil;
-import org.xioamila.vo.Result;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.File;
@@ -33,6 +33,11 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
     private String musicFilePath;
 
     private final MusicMapper musicMapper;
+
+    @Override
+    public Page<Music> getPageList(Page<Music> page, Music music) {
+        return musicMapper.getPageList(page, music);
+    }
 
     @Transactional
     @Override

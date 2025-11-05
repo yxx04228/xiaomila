@@ -1,8 +1,5 @@
 package org.xioamila.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -34,20 +31,15 @@ public class MusicController {
     @Operation(summary = "音乐列表查询")
     @GetMapping("/getPageList")
     @Parameters({
-            @Parameter(name = "title", description = "歌曲标题", in = ParameterIn.QUERY, schema = @Schema(type = "string"))
+            @Parameter(name = "title", description = "歌曲标题", in = ParameterIn.QUERY, schema = @Schema(type = "string")),
+            @Parameter(name = "singer", description = "歌手", in = ParameterIn.QUERY, schema = @Schema(type = "string"))
     })
-    public Result<IPage<Music>> getPageList(@RequestParam(required = false) String title,
+    public Result<Page<Music>> getPageList(@Parameter(hidden = true) Music music,
                                             @Parameter(description = "当前页数") @RequestParam(defaultValue = "1") Integer nCurrent,
                                             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer nSize) {
 
-        QueryWrapper<Music> queryWrapper = new QueryWrapper<>();
-
-        if (StringUtils.isNotBlank(title)) {
-            queryWrapper.like("title", title);
-        }
-        queryWrapper.orderByDesc("create_time");
-        IPage<Music> pageList = musicService.page(new Page<>(nCurrent, nSize), queryWrapper);
-        return Result.data(pageList);
+        Page<Music> musicList = musicService.getPageList(new Page<>(nCurrent, nSize), music);
+        return Result.data(musicList);
     }
 
     @Operation(summary = "音乐文件上传")

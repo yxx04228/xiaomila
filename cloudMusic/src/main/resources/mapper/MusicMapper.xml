@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="org.xioamila.mapper.MusicMapper">
+    <select id="getPageList" resultType="org.xioamila.entity.Music">
+        SELECT *
+        FROM music
+        WHERE  DELETED = '0'
+        <if test="music.title != null and music.title != ''">
+            AND TITLE LIKE CONCAT('%', #{music.title}, '%')
+        </if>
+        <if test="music.singer != null and music.singer != ''">
+            AND SINGER LIKE CONCAT('%', #{music.singer}, '%')
+        </if>
+        ORDER BY CREATE_TIME DESC
+    </select>
+</mapper>
