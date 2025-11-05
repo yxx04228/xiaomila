@@ -1,93 +1,121 @@
 <template>
-  <div class="music-player" v-if="currentMusic">
-    <div class="player-content">
-      <!-- 歌曲信息 -->
-      <div class="song-info">
-        <div class="album-cover">
-          <el-avatar :size="50" :src="getAlbumCover(currentMusic)" shape="square">
-            <el-icon><Headset /></el-icon>
-          </el-avatar>
+  <div class="music-player">
+    <div v-if="currentMusic" class="player-content">
+      <!-- 播放器内容 -->
+      <div class="player-content">
+        <!-- 歌曲信息 -->
+        <div class="song-info">
+          <div class="album-cover">
+            <el-avatar :size="50" :src="getAlbumCover(currentMusic)" shape="square">
+              <el-icon><Headset /></el-icon>
+            </el-avatar>
+          </div>
+          <div class="song-details">
+            <div class="song-title">{{ currentMusic.title }}</div>
+            <div class="song-artist">{{ currentMusic.singer }}</div>
+            <div class="loading-status" v-if="audioLoading">
+              <el-icon class="is-loading"><Loading /></el-icon>
+              <span>加载中...</span>
+            </div>
+          </div>
         </div>
-        <div class="song-details">
-          <div class="song-title">{{ currentMusic.title }}</div>
-          <div class="song-artist">{{ currentMusic.singer }}</div>
-          <div class="loading-status" v-if="audioLoading">
-            <el-icon class="is-loading"><Loading /></el-icon>
-            <span>加载中...</span>
+
+        <!-- 播放控制 -->
+        <div class="playback-controls">
+          <div class="control-buttons">
+            <el-button
+              :icon="loopConfig.icon"
+              text
+              @click="toggleLoopMode"
+              :type="loopConfig.color"
+              :title="loopConfig.title"
+              class="loop-button"
+              :class="`loop-mode-${loopMode}`"
+            />
+            <el-button :icon="ArrowLeft" text @click="playPrevious" title="上一首" />
+            <el-button
+              :icon="isPlaying ? VideoPause : VideoPlay"
+              circle
+              type="primary"
+              size="large"
+              @click="handlePlayButtonClick"
+              :title="isPlaying ? '暂停' : '播放'"
+              :loading="audioLoading"
+              :disabled="!currentMusic && musicList.length === 0"
+            />
+            <el-button :icon="ArrowRight" text @click="playNext" title="下一首" />
+            <!-- 静音按钮 -->
+            <el-button
+              :icon="Microphone"
+              text
+              @click="toggleMute"
+              :type="isMuted ? 'danger' : ''"
+              :title="muteTitle"
+              class="mute-button"
+            />
+          </div>
+
+          <!-- 进度条 -->
+          <div class="progress-container" v-if="duration > 0">
+            <span class="time-current">{{ formatTime(currentTime) }}</span>
+            <el-slider
+              v-model="currentTime"
+              :max="duration"
+              :show-tooltip="false"
+              @change="setCurrentTime"
+              class="progress-slider"
+            />
+            <span class="time-total">{{ formatTime(duration) }}</span>
+          </div>
+          <div class="progress-container" v-else>
+            <span class="time-current">0:00</span>
+            <el-slider :value="0" disabled class="progress-slider" />
+            <span class="time-total">{{ currentMusic.duration || '0:00' }}</span>
+          </div>
+        </div>
+
+        <!-- 其他控制 -->
+        <div class="extra-controls">
+          <el-button :icon="Download" text @click="handleDownload" title="下载" />
+          <!-- 音量弹出框（修复显隐问题） -->
+          <div class="volume-control-wrapper">
+            <!-- 音量按钮 -->
+            <el-button
+              text
+              :title="volumeTitle"
+              class="volume-control-button"
+              :type="isMuted || volumeValue === 0 ? 'danger' : ''"
+              @click.stop.prevent="volumePopoverVisible = !volumePopoverVisible"
+            >
+              <component :is="volumeIcon" class="volume-icon" />
+            </el-button>
+
+            <!-- 原生弹出框（彻底避免组件冲突） -->
+            <div class="native-volume-popover" v-show="volumePopoverVisible" @click.stop>
+              <div class="volume-control">
+                <el-slider
+                  v-model="volumeValue"
+                  vertical
+                  height="120px"
+                  :min="0"
+                  :max="1"
+                  :step="0.01"
+                  :show-tooltip="false"
+                  @input="handleVolumeInput"
+                  class="volume-slider"
+                />
+                <div class="volume-percent">{{ Math.round(volumeValue * 100) }}%</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-
-      <!-- 播放控制 -->
-      <div class="playback-controls">
-        <div class="control-buttons">
-          <el-button
-            :icon="Refresh"
-            text
-            @click="toggleLoopMode"
-            :type="loopMode !== 'none' ? 'primary' : ''"
-            :title="getLoopModeText()"
-          />
-          <el-button :icon="ArrowLeft" text @click="playPrevious" title="上一首" />
-          <el-button
-            :icon="isPlaying ? VideoPause : VideoPlay"
-            circle
-            type="primary"
-            size="large"
-            @click="handlePlayButtonClick"
-            :title="isPlaying ? '暂停' : '播放'"
-            :loading="audioLoading"
-            :disabled="!currentMusic && musicList.length === 0"
-          />
-          <el-button :icon="ArrowRight" text @click="playNext" title="下一首" />
-          <el-button
-            :icon="Microphone"
-            text
-            @click="toggleMute"
-            :type="isMuted ? 'danger' : ''"
-            :title="isMuted ? '取消静音' : '静音'"
-          />
-        </div>
-
-        <!-- 进度条 -->
-        <div class="progress-container" v-if="duration > 0">
-          <span class="time-current">{{ formatTime(currentTime) }}</span>
-          <el-slider
-            v-model="currentTime"
-            :max="duration"
-            :show-tooltip="false"
-            @change="setCurrentTime"
-            class="progress-slider"
-          />
-          <span class="time-total">{{ formatTime(duration) }}</span>
-        </div>
-        <div class="progress-container" v-else>
-          <span class="time-current">0:00</span>
-          <el-slider :value="0" disabled class="progress-slider" />
-          <span class="time-total">{{ currentMusic.duration || '0:00' }}</span>
-        </div>
-      </div>
-
-      <!-- 其他控制 -->
-      <div class="extra-controls">
-        <el-button :icon="Download" text @click="handleDownload" title="下载" />
-        <!-- 使用麦克风图标替代音量图标 -->
-        <el-popover placement="top" width="60" trigger="click">
-          <template #reference>
-            <el-button :icon="Microphone" text title="音量" />
-          </template>
-          <el-slider
-            v-model="volume"
-            vertical
-            height="80px"
-            :show-tooltip="false"
-            @input="setVolume"
-          />
-        </el-popover>
-      </div>
+    </div>
+    <div v-else class="player-placeholder">
+      <el-empty description="暂无播放内容" :image-size="80" />
     </div>
 
-    <!-- 音频元素 -->
+    <!-- 音频元素始终存在 -->
     <audio
       ref="audioRef"
       @loadedmetadata="handleLoadedMetadata"
@@ -117,17 +145,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue'
+// 导入音量图标组件
+import { VolumeMute, VolumeLow, VolumeMedium, VolumeHigh } from '@/components/icons/VolumeIcons'
 import {
   Headset,
   ArrowLeft,
   ArrowRight,
   VideoPause,
   VideoPlay,
-  Refresh,
-  Microphone,
   Download,
   Loading,
+  // 循环相关图标
+  RefreshRight,
+  Refresh,
+  CircleClose,
+  // 音量图标
+  Microphone,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useMusicStore } from '@/stores/music'
@@ -145,6 +179,7 @@ const {
   isMuted,
   audioLoading,
   audioElementReady,
+  musicList,
 } = storeToRefs(musicStore)
 
 const {
@@ -162,19 +197,60 @@ const {
 
 const audioRef = ref<HTMLAudioElement>()
 const showErrorDialog = ref(false)
-const playerReady = ref(false) // 新增：播放器就绪状态
+const initializationComplete = ref(false)
+// 本地音量值（用于滑块双向绑定，避免直接修改store值的频繁触发）
+const volumeValue = ref(volume.value)
+const volumePopoverVisible = ref(false)
 
-// 获取循环模式文本
-const getLoopModeText = () => {
+// 获取循环模式图标和文本
+const loopConfig = computed(() => {
   switch (loopMode.value) {
     case 'one':
-      return '单曲循环'
+      return {
+        icon: RefreshRight, // 单曲循环图标
+        title: '单曲循环',
+        color: 'primary',
+      }
     case 'all':
-      return '列表循环'
+      return {
+        icon: Refresh, // 列表循环图标
+        title: '列表循环',
+        color: 'primary',
+      }
     default:
-      return '不循环'
+      return {
+        icon: CircleClose, // 不循环图标
+        title: '不循环',
+        color: '',
+      }
   }
-}
+})
+
+// 获取音量图标
+const volumeIcon = computed(() => {
+  if (isMuted.value || volume.value === 0) {
+    return VolumeMute
+  } else if (volume.value < 0.3) {
+    return VolumeLow
+  } else if (volume.value < 0.7) {
+    return VolumeMedium
+  } else {
+    return VolumeHigh
+  }
+})
+
+// 获取音量按钮标题
+const volumeTitle = computed(() => {
+  if (isMuted.value) {
+    return '取消静音'
+  }
+  return `音量: ${Math.round(volume.value * 100)}%`
+})
+
+// 获取静音提示文本
+const muteTitle = computed(() => {
+  return isMuted.value ? '取消静音' : '静音'
+})
 
 // 获取专辑封面（模拟）
 const getAlbumCover = (music: any) => {
@@ -211,7 +287,6 @@ const handleEnded = () => {
 const handleError = (error: any) => {
   console.error('音频播放错误:', error)
   showErrorDialog.value = true
-
   const audioElement = audioRef.value
   if (audioElement?.error) {
     switch (audioElement.error.code) {
@@ -242,7 +317,7 @@ const handleDownload = async () => {
 
 // 播放按钮点击处理
 const handlePlayButtonClick = async () => {
-  if (!playerReady.value || !audioElementReady.value) {
+  if (!initializationComplete.value) {
     ElMessage.warning('播放器正在初始化，请稍候...')
     return
   }
@@ -254,14 +329,58 @@ const handlePlayButtonClick = async () => {
   }
 }
 
-// 初始化音频元素
-onMounted(() => {
-  if (audioRef.value) {
-    initAudioElement(audioRef.value)
-    console.log('音频元素已初始化')
-  } else {
-    console.error('音频元素引用为空')
+// 处理音量滑块输入
+const handleVolumeInput = (newValue: number) => {
+  volumeValue.value = newValue
+  // 同步到store，并取消静音状态
+  if (isMuted.value) {
+    toggleMute() // 调节音量时自动取消静音
   }
+  setVolume(newValue)
+}
+
+// 初始化音频元素
+onMounted(async () => {
+  console.log('MusicPlayer 组件挂载')
+
+  // 等待下一个tick确保DOM渲染完成
+  await nextTick()
+
+  if (audioRef.value) {
+    console.log('找到音频元素，开始初始化...')
+    initAudioElement(audioRef.value)
+
+    // 监听音频元素就绪状态
+    const checkReadyState = () => {
+      if (audioElementReady.value) {
+        initializationComplete.value = true
+        console.log('🎵 音频播放器初始化完成，已就绪！')
+        ElMessage.success('播放器已就绪')
+      } else {
+        console.log('等待播放器就绪...')
+        setTimeout(checkReadyState, 100)
+      }
+    }
+
+    checkReadyState()
+  } else {
+    console.error('❌ 音频元素引用为空')
+    ElMessage.error('播放器初始化失败')
+  }
+
+  // 全局点击事件：点击外部关闭音量弹出框
+  const handleClickOutside = (e: MouseEvent) => {
+    const volumeWrapper = document.querySelector('.volume-control-wrapper')
+    if (volumeWrapper && !volumeWrapper.contains(e.target as Node)) {
+      volumePopoverVisible.value = false
+    }
+  }
+
+  document.addEventListener('click', handleClickOutside)
+
+  onUnmounted(() => {
+    document.removeEventListener('click', handleClickOutside)
+  })
 })
 
 // 监听播放状态变化
@@ -271,7 +390,6 @@ watch(isPlaying, async (playing) => {
   try {
     if (playing) {
       console.log('开始播放音频...')
-      // 播放状态由store中的playMusic方法控制
     } else {
       audioRef.value.pause()
       console.log('音频已暂停')
@@ -283,9 +401,18 @@ watch(isPlaying, async (playing) => {
   }
 })
 
-// 监听音量变化
-watch(volume, (newVolume) => {
-  setVolume(newVolume)
+// 监听store中的音量变化，同步到本地音量值
+watch(volume, (newVal) => {
+  volumeValue.value = newVal
+})
+
+// 监听静音状态变化，同步滑块样式
+watch(isMuted, (muted) => {
+  if (muted) {
+    volumeValue.value = 0 // 静音时滑块显示0
+  } else {
+    volumeValue.value = volume.value // 取消静音时恢复原音量
+  }
 })
 
 // 组件卸载时清理
@@ -294,201 +421,355 @@ onUnmounted(() => {
     audioRef.value.pause()
   }
   cleanupBlobUrl()
+  volumePopoverVisible.value = false // 卸载时关闭弹出框
+  console.log('MusicPlayer 组件卸载')
 })
 </script>
 
 <style scoped>
-/* 就绪状态样式 */
-.ready-status {
-  margin-top: 4px;
+.music-player {
+  width: 100%;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4eaf5 100%);
+  color: #333;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
-.ready-text {
-  font-size: 12px;
-  color: #52c41a;
+.player-placeholder {
+  padding: 20px;
+  text-align: center;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px; /* 增加间距，与内容区域协调 */
+  height: 100%;
+  min-height: 70px;
+  width: 80%;
+  padding: 10px;
+}
+
+/* 歌曲信息样式 */
+.song-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  min-width: 200px;
+  max-width: 250px; /* 限制最大宽度 */
+}
+
+.album-cover {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.song-details {
+  flex: 1;
+  overflow: hidden;
+}
+
+.song-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.song-artist {
+  font-size: 14px;
+  color: #718096;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .loading-status {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   font-size: 12px;
-  color: #1890ff;
+  color: #4299e1;
   margin-top: 4px;
 }
 
-.loading-status .el-icon {
-  animation: rotating 2s linear infinite;
-}
-
-@keyframes rotating {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.music-player {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: white;
-  border-top: 1px solid #e4e7ed;
-  padding: 10px 20px;
-  box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-}
-
-.player-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  max-width: 1200px;
-  margin: 0 auto;
-  gap: 20px;
-}
-
-.song-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  min-width: 200px;
-}
-
-.song-details {
-  flex: 1;
-}
-
-.song-title {
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 2px;
-  font-size: 14px;
-}
-
-.song-artist {
-  font-size: 12px;
-  color: #666;
-}
-
+/* 播放控制样式 */
 .playback-controls {
-  flex: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  min-width: 400px;
+  flex: 1;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .control-buttons {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 20px; /* 增加按钮间距 */
 }
 
+.loop-button,
+.mute-button {
+  --el-button-text-color: #4a5568;
+  --el-button-hover-text-color: #4299e1;
+  transition: all 0.2s ease;
+}
+
+.loop-button.loop-mode-one,
+.loop-button.loop-mode-all {
+  --el-button-text-color: #4299e1;
+}
+
+.control-buttons .el-button--circle.el-button--primary {
+  --el-button-size: 44px;
+  --el-button-text-color: #fff;
+  --el-button-bg-color: #4299e1;
+  --el-button-hover-bg-color: #3182ce;
+  box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
+}
+
+.control-buttons .el-icon {
+  font-size: 20px;
+}
+
+.control-buttons .el-button--text {
+  padding: 8px;
+}
+
+/* 进度条样式 */
 .progress-container {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 12px; /* 增加时间与进度条的间距 */
   width: 100%;
-  max-width: 500px;
+  padding: 0 10px;
 }
 
 .time-current,
 .time-total {
   font-size: 12px;
-  color: #666;
-  min-width: 40px;
+  color: #718096;
+  width: 45px; /* 稍微增加宽度 */
+  text-align: center;
+  flex-shrink: 0;
 }
 
+/* 进度条滑块样式 - 修复版本 */
 .progress-slider {
   flex: 1;
+  cursor: pointer;
+}
+:deep(.progress-slider) {
+  --el-slider-rail-height: 3px;
+  --el-slider-track-height: 3px;
+  --el-slider-thumb-size: 10px;
+}
+:deep(.progress-slider .el-slider__runway) {
+  height: 5px;
+  margin: 10px 0; /* 调整上下边距 */
+  background-color: #e2e8f0;
+  border-radius: 2px;
+}
+:deep(.progress-slider .el-slider__bar) {
+  height: 5px;
+  background-color: #4299e1;
+  border-radius: 2px;
+}
+:deep(.progress-slider .el-slider__button-wrapper) {
+  width: 5px; /* 点击区域 */
+  height: 5px;
+  top: -11px; /* 调整垂直位置，让滑块居中 */
+  transform: translateX(-50%);
+}
+:deep(.progress-slider .el-slider__button) {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fff;
+  background-color: #4299e1;
+  box-shadow: 0 1px 3px rgba(66, 153, 225, 0.4);
+}
+/* 悬停状态 */
+:deep(.progress-slider:hover .el-slider__button) {
+  transform: scale(1.3);
 }
 
+/* 额外控制样式 */
 .extra-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1;
   justify-content: flex-end;
+  gap: 12px;
+  flex: 0 0 auto;
   min-width: 120px;
 }
 
-/* 播放列表样式 */
-.playlist-content {
-  padding: 0 10px;
+.extra-controls .el-button--text {
+  --el-button-text-color: #4a5568;
+  --el-button-hover-text-color: #4299e1;
+  padding: 8px;
 }
 
-.playlist-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
+.extra-controls .el-icon {
+  font-size: 18px;
 }
 
-.playlist-header h4 {
-  margin: 0;
-  color: #333;
-}
-
-.playlist-items {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.playlist-item {
+/* 音量控制样式 */
+.volume-control-wrapper {
+  position: relative;
   display: flex;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  gap: 12px;
 }
 
-.playlist-item:hover {
-  background-color: #f5f5f5;
+.volume-control-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.playlist-item.active {
-  background-color: #e6f7ff;
-  color: #1890ff;
+.volume-icon {
+  font-size: 18px;
 }
 
-.item-index {
-  width: 24px;
-  text-align: center;
+.native-volume-popover {
+  position: absolute;
+  bottom: 40px;
+  right: 0;
+  background: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.volume-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.volume-slider {
+  --el-slider-rail-height: 4px;
+  --el-slider-track-height: 4px;
+  --el-slider-thumb-size: 10px;
+}
+
+.volume-percent {
   font-size: 12px;
-  color: #999;
+  color: #4a5568;
+  font-weight: 500;
 }
 
-.item-info {
-  flex: 1;
+/* 响应式调整 */
+@media (max-width: 1024px) {
+  .player-content {
+    gap: 16px;
+  }
+
+  .song-info {
+    min-width: 180px;
+    max-width: 220px;
+  }
+
+  .playback-controls {
+    max-width: 450px;
+  }
+
+  .control-buttons {
+    gap: 16px;
+  }
 }
 
-.item-title {
-  font-size: 14px;
-  margin-bottom: 2px;
+@media (max-width: 768px) {
+  .player-content {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .song-info {
+    order: 1;
+    flex: 1;
+    min-width: auto;
+    max-width: none;
+  }
+
+  .playback-controls {
+    order: 3;
+    flex: 1 0 100%;
+    max-width: none;
+    margin-top: 8px;
+  }
+
+  .extra-controls {
+    order: 2;
+    flex: 0 0 auto;
+  }
+
+  .song-title {
+    font-size: 14px;
+  }
+
+  .song-artist {
+    font-size: 12px;
+  }
+
+  .control-buttons {
+    gap: 12px;
+  }
+
+  .progress-container {
+    gap: 8px;
+  }
 }
 
-.item-artist {
-  font-size: 12px;
-  color: #666;
-}
+@media (max-width: 480px) {
+  .player-content {
+    gap: 8px;
+  }
 
-.item-duration {
-  font-size: 12px;
-  color: #999;
-}
+  .song-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
 
-/* 隐藏音频元素 */
-audio {
-  display: none;
+  .album-cover {
+    display: none;
+  }
+
+  .progress-container {
+    gap: 6px;
+  }
+
+  .time-current,
+  .time-total {
+    font-size: 11px;
+    width: 36px;
+  }
+
+  .control-buttons .el-button--circle.el-button--primary {
+    --el-button-size: 40px;
+  }
 }
 </style>

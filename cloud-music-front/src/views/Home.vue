@@ -20,29 +20,17 @@
       </div>
     </div>
 
-    <!-- 自动播放提示 -->
-    <div
-      v-if="musicStore.autoPlayEnabled && musicStore.musicList.length > 0"
-      class="auto-play-tips"
-    >
-      <el-alert
-        title="自动播放提示"
-        description="已自动加载第一首歌曲，点击播放按钮开始聆听"
-        type="info"
-        show-icon
-        :closable="true"
-        @close="musicStore.disableAutoPlay()"
+    <!-- 音乐列表容器 -->
+    <div class="music-list-container">
+      <MusicList
+        :music-list="musicStore.musicList"
+        :loading="musicStore.loading"
+        :pagination="musicStore.pagination"
+        @play="handlePlay"
+        @download="handleDownload"
+        @page-change="handlePageChange"
       />
     </div>
-
-    <MusicList
-      :music-list="musicStore.musicList"
-      :loading="musicStore.loading"
-      :pagination="musicStore.pagination"
-      @play="handlePlay"
-      @download="handleDownload"
-      @page-change="handlePageChange"
-    />
   </div>
 </template>
 
@@ -91,9 +79,17 @@ const handleInput = () => {
 
 const handlePlay = async (music: Music) => {
   try {
+    console.log('开始播放音乐:', music.title)
     await musicStore.playMusic(music)
+    console.log('播放成功:', music.title)
   } catch (error: any) {
-    ElMessage.error(`播放失败: ${error.message || '请稍后重试'}`)
+    console.error('播放失败:', error)
+
+    if (error.message.includes('初始化超时')) {
+      ElMessage.error('播放器初始化失败，请刷新页面重试')
+    } else {
+      ElMessage.error(`播放失败: ${error.message || '未知错误'}`)
+    }
   }
 }
 
@@ -127,26 +123,60 @@ onUnmounted(() => {
 
 <style scoped>
 .home-page {
-  padding: 20px 0;
+  width: 100%;
+  height: 100%; /* 继承父容器高度 */
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0; /* 关键：允许收缩 */
 }
 
 .page-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0; /* 禁止头部收缩 */
 }
 
 .page-header h1 {
-  color: #333;
+  font-size: 24px;
+  font-weight: 600;
+  color: #2d3748;
   margin: 0;
 }
 
 .search-area {
-  width: 300px;
+  width: 360px;
+  max-width: 100%;
 }
 
-.auto-play-tips {
-  margin-bottom: 20px;
+/* 音乐列表容器 - 关键修复 */
+.music-list-container {
+  flex: 1;
+  min-height: 0; /* 关键：允许在flex容器中滚动 */
+  overflow: hidden; /* 隐藏自身滚动，让内部组件处理 */
+  display: flex;
+  flex-direction: column;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .home-page {
+    gap: 12px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding-bottom: 8px;
+  }
+
+  .search-area {
+    width: 100%;
+  }
 }
 </style>

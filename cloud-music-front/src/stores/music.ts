@@ -15,10 +15,11 @@ export const useMusicStore = defineStore('music', () => {
   const loopMode = ref<'none' | 'one' | 'all'>('none')
   const playHistory = ref<Music[]>([])
   const audioElement = ref<HTMLAudioElement | null>(null)
-  const currentBlobUrl = ref<string>('') // 新增：当前blob URL
-  const audioLoading = ref(false) // 新增：音频加载状态
-  const autoPlayEnabled = ref(false) // 新增：自动播放标志
-  const audioElementReady = ref(false) // 新增：音频元素就绪状态
+  const currentBlobUrl = ref<string>('')
+  const audioLoading = ref(false)
+  const autoPlayEnabled = ref(false)
+  const audioElementReady = ref(false)
+  const pendingMusicLoad = ref<Music | null>(null) // 新增：待加载的音乐
 
   const pagination = ref({
     current: 1,
@@ -38,9 +39,17 @@ export const useMusicStore = defineStore('music', () => {
         pagination.value.current = response.data.current || 1
         console.log('获取音乐列表成功:', musicList.value)
 
-        // 如果启用了自动播放且有音乐数据，预加载第一首（但不立即播放）
+        // 如果启用了自动播放且有音乐数据，设置待加载的音乐（不立即加载）
         if (autoPlayEnabled.value && musicList.value.length > 0 && !currentMusic.value) {
-          await preloadFirstSong()
+          pendingMusicLoad.value = musicList.value[0]
+          console.log('设置待加载音乐:', pendingMusicLoad.value.title)
+
+          // 如果音频元素已经就绪，立即加载
+          if (audioElementReady.value) {
+            console.log('音频元素已就绪，立即加载待加载音乐')
+            await loadMusic(pendingMusicLoad.value, false)
+            pendingMusicLoad.value = null
+          }
         }
       } else {
         console.error('接口返回失败:', response.message)
@@ -54,116 +63,18 @@ export const useMusicStore = defineStore('music', () => {
     }
   }
 
-  // 预加载第一首歌曲（不播放）
-  const preloadFirstSong = async () => {
-    if (musicList.value.length === 0) {
-      console.log('没有可播放的音乐')
-      return
-    }
-
-    const firstSong = musicList.value[0]
-    console.log('预加载第一首歌曲:', firstSong.title)
-
-    try {
-      await loadMusic(firstSong, false) // 只加载，不播放
-      console.log('预加载成功')
-    } catch (error) {
-      console.error('预加载失败:', error)
-    }
-  }
-
-  // 启用自动播放
-  const enableAutoPlay = () => {
-    autoPlayEnabled.value = true
-    console.log('启用自动播放')
-  }
-
-  // 禁用自动播放
-  const disableAutoPlay = () => {
-    autoPlayEnabled.value = false
-    console.log('禁用自动播放')
-  }
-
-  // 加载音乐（不自动播放）
-  const loadMusic = async (music: Music, autoPlay = false) => {
-    try {
-      audioLoading.value = true
-
-      // 释放之前的blob URL
-      if (currentBlobUrl.value) {
-        URL.revokeObjectURL(currentBlobUrl.value)
-        currentBlobUrl.value = ''
-      }
-
-      // 获取音频blob
-      const response = await musicApi.playMusic(music.id)
-      const blobUrl = URL.createObjectURL(response)
-      currentBlobUrl.value = blobUrl
-
-      // 设置当前音乐
-      currentMusic.value = music
-
-      // 设置音频源
-      if (audioElement.value) {
-        audioElement.value.src = blobUrl
-
-        // 如果要求自动播放且音频元素已就绪，尝试播放
-        if (autoPlay && audioElementReady.value) {
-          try {
-            await audioElement.value.play()
-            isPlaying.value = true
-            console.log('自动播放成功:', music.title)
-          } catch (playError) {
-            console.warn('自动播放被阻止，需要用户交互:', playError)
-            isPlaying.value = false
-          }
-        } else {
-          // 只加载，不播放
-          isPlaying.value = false
-          console.log('音乐加载完成，等待播放:', music.title)
-        }
-      } else {
-        console.warn('音频元素未初始化，无法设置音乐源')
-        throw new Error('音频播放器未就绪')
-      }
-
-      // 添加到播放历史
-      if (!playHistory.value.some((item) => item.id === music.id)) {
-        playHistory.value.unshift(music)
-        if (playHistory.value.length > 50) {
-          playHistory.value = playHistory.value.slice(0, 50)
-        }
-      }
-    } catch (error) {
-      console.error('加载音乐失败:', error)
-      isPlaying.value = false
-      throw error
-    } finally {
-      audioLoading.value = false
-    }
-  }
-
-  // 播放音乐
-  const playMusic = async (music: Music) => {
-    // 如果已经是当前音乐且已加载，直接播放
-    if (currentMusic.value?.id === music.id && currentBlobUrl.value && audioElement.value) {
-      if (isPlaying.value) {
-        pauseMusic()
-      } else {
-        await resumeMusic()
-      }
-    } else {
-      // 新歌曲，加载并播放
-      await loadMusic(music, true)
-    }
-  }
-
   // 初始化音频元素
   const initAudioElement = (audio: HTMLAudioElement) => {
     audioElement.value = audio
-    audioElementReady.value = true // 标记音频元素已就绪
-    console.log('音频元素初始化完成')
+    console.log('🎵 初始化音频元素...')
 
+    // 设置基本属性
+    audio.volume = volume.value
+    audio.muted = isMuted.value
+    audio.playbackRate = playbackRate.value
+    audio.loop = loopMode.value === 'one'
+
+    // 添加事件监听器
     audio.addEventListener('loadedmetadata', () => {
       duration.value = audio.duration
       console.log('音频元数据加载完成，时长:', duration.value)
@@ -192,6 +103,142 @@ export const useMusicStore = defineStore('music', () => {
       audioLoading.value = false
       console.log('音频可以播放了')
     })
+
+    audio.addEventListener('canplaythrough', () => {
+      console.log('音频可以完整播放了')
+    })
+
+    // 标记音频元素为就绪状态
+    audioElementReady.value = true
+    console.log('✅ 音频元素初始化完成')
+
+    // 如果有待加载的音乐，现在加载
+    if (pendingMusicLoad.value) {
+      console.log('加载待播放的音乐:', pendingMusicLoad.value.title)
+      loadMusic(pendingMusicLoad.value, false)
+        .then(() => {
+          console.log('待播放音乐加载完成')
+          pendingMusicLoad.value = null
+        })
+        .catch((error) => {
+          console.error('待播放音乐加载失败:', error)
+          pendingMusicLoad.value = null
+        })
+    }
+  }
+
+  // 加载音乐
+  const loadMusic = async (music: Music, autoPlay = false) => {
+    try {
+      audioLoading.value = true
+      console.log('开始加载音乐:', music.title)
+
+      // 释放之前的blob URL
+      if (currentBlobUrl.value) {
+        URL.revokeObjectURL(currentBlobUrl.value)
+        currentBlobUrl.value = ''
+      }
+
+      // 获取音频blob
+      const response = await musicApi.playMusic(music.id)
+      const blobUrl = URL.createObjectURL(response)
+      currentBlobUrl.value = blobUrl
+
+      // 设置当前音乐
+      currentMusic.value = music
+
+      // 设置音频源
+      if (!audioElement.value) {
+        throw new Error('音频元素未初始化')
+      }
+
+      audioElement.value.src = blobUrl
+      console.log('音频源设置完成')
+
+      // 等待音频元素加载
+      await new Promise((resolve, reject) => {
+        const onCanPlay = () => {
+          cleanup()
+          resolve(true)
+        }
+
+        const onError = () => {
+          cleanup()
+          reject(new Error('音频加载失败'))
+        }
+
+        const cleanup = () => {
+          audioElement.value?.removeEventListener('canplay', onCanPlay)
+          audioElement.value?.removeEventListener('error', onError)
+        }
+
+        audioElement.value?.addEventListener('canplay', onCanPlay)
+        audioElement.value?.addEventListener('error', onError)
+
+        // 设置超时
+        setTimeout(() => {
+          cleanup()
+          resolve(true) // 即使超时也继续
+        }, 10000)
+      })
+
+      console.log('音乐加载完成:', music.title)
+
+      // 如果要求自动播放，尝试播放
+      if (autoPlay) {
+        try {
+          await audioElement.value!.play()
+          isPlaying.value = true
+          console.log('自动播放成功:', music.title)
+        } catch (playError) {
+          console.warn('自动播放被阻止:', playError)
+          isPlaying.value = false
+          // 不抛出错误，因为自动播放被阻止是正常现象
+        }
+      }
+
+      // 添加到播放历史
+      if (!playHistory.value.some((item) => item.id === music.id)) {
+        playHistory.value.unshift(music)
+        if (playHistory.value.length > 50) {
+          playHistory.value = playHistory.value.slice(0, 50)
+        }
+      }
+    } catch (error) {
+      console.error('加载音乐失败:', error)
+      isPlaying.value = false
+      throw error
+    } finally {
+      audioLoading.value = false
+    }
+  }
+
+  // 播放音乐
+  const playMusic = async (music: Music, retryCount = 0) => {
+    const maxRetries = 3
+
+    // 检查播放器是否就绪
+    if (!audioElementReady.value) {
+      if (retryCount < maxRetries) {
+        console.warn(`播放器未就绪，第 ${retryCount + 1} 次重试...`)
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        return playMusic(music, retryCount + 1)
+      } else {
+        throw new Error('播放器初始化超时，请刷新页面重试')
+      }
+    }
+
+    // 如果已经是当前音乐且已加载，直接播放
+    if (currentMusic.value?.id === music.id && currentBlobUrl.value) {
+      if (isPlaying.value) {
+        pauseMusic()
+      } else {
+        await resumeMusic()
+      }
+    } else {
+      // 新歌曲，加载并播放
+      await loadMusic(music, true)
+    }
   }
 
   // 暂停音乐
@@ -284,7 +331,9 @@ export const useMusicStore = defineStore('music', () => {
       // 单曲循环，重新播放
       if (audioElement.value) {
         audioElement.value.currentTime = 0
-        audioElement.value.play()
+        audioElement.value.play().catch((error) => {
+          console.warn('循环播放失败:', error)
+        })
       }
     } else if (loopMode.value === 'all' && musicList.value.length > 0) {
       // 列表循环，播放下一首
@@ -300,6 +349,15 @@ export const useMusicStore = defineStore('music', () => {
   const playNext = () => {
     if (!currentMusic.value || musicList.value.length === 0) return
 
+    // 如果只有一首歌，重新从开头播放当前歌曲
+    if (musicList.value.length === 1) {
+      if (audioElement.value) {
+        audioElement.value.currentTime = 0
+        console.log('重新播放当前歌曲')
+      }
+      return
+    }
+
     const currentIndex = musicList.value.findIndex((m) => m.id === currentMusic.value?.id)
     const nextIndex = (currentIndex + 1) % musicList.value.length
     playMusic(musicList.value[nextIndex])
@@ -308,6 +366,15 @@ export const useMusicStore = defineStore('music', () => {
   // 播放上一首
   const playPrevious = () => {
     if (!currentMusic.value || musicList.value.length === 0) return
+
+    // 如果只有一首歌，重新从开头播放当前歌曲
+    if (musicList.value.length === 1) {
+      if (audioElement.value) {
+        audioElement.value.currentTime = 0
+        console.log('重新播放当前歌曲')
+      }
+      return
+    }
 
     const currentIndex = musicList.value.findIndex((m) => m.id === currentMusic.value?.id)
     const prevIndex = currentIndex > 0 ? currentIndex - 1 : musicList.value.length - 1
@@ -329,6 +396,18 @@ export const useMusicStore = defineStore('music', () => {
     }
   }
 
+  // 启用自动播放
+  const enableAutoPlay = () => {
+    autoPlayEnabled.value = true
+    console.log('启用自动播放')
+  }
+
+  // 禁用自动播放
+  const disableAutoPlay = () => {
+    autoPlayEnabled.value = false
+    console.log('禁用自动播放')
+  }
+
   return {
     // 状态
     musicList,
@@ -347,6 +426,7 @@ export const useMusicStore = defineStore('music', () => {
     currentBlobUrl,
     autoPlayEnabled,
     audioElementReady,
+    pendingMusicLoad,
 
     // 方法
     fetchMusicList,
@@ -366,7 +446,6 @@ export const useMusicStore = defineStore('music', () => {
     cleanupBlobUrl,
     enableAutoPlay,
     disableAutoPlay,
-    preloadFirstSong,
     loadMusic,
   }
 })
