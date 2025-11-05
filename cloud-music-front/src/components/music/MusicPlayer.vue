@@ -58,10 +58,11 @@
           <div class="progress-container" v-if="duration > 0">
             <span class="time-current">{{ formatTime(currentTime) }}</span>
             <el-slider
-              v-model="currentTime"
+              v-model="sliderTime"
               :max="duration"
               :show-tooltip="false"
-              @change="setCurrentTime"
+              @change="handleSliderChange"
+              @input="handleSliderInput"
               class="progress-slider"
             />
             <span class="time-total">{{ formatTime(duration) }}</span>
@@ -210,6 +211,12 @@ const initializationComplete = ref(false)
 // 本地音量值（用于滑块双向绑定，避免直接修改store值的频繁触发）
 const volumeValue = ref(volume.value)
 const volumePopoverVisible = ref(false)
+// 独立的进度条值，避免与音频当前时间直接绑定
+const sliderTime = ref(0)
+// 防止进度条事件重复触发
+const isSeeking = ref(false)
+// 防止单曲循环模式下的重复触发
+const isHandlingEnded = ref(false)
 
 // 获取循环模式图标和文本
 const loopConfig = computed(() => {
@@ -284,17 +291,82 @@ const handleCanPlay = () => {
 }
 
 const handleTimeUpdate = () => {
-  if (audioRef.value) {
+  if (audioRef.value && !isSeeking.value) {
     currentTime.value = audioRef.value.currentTime
+    // 只有当用户没有在拖动时才更新滑块值
+    sliderTime.value = currentTime.value
   }
 }
 
-const handleEnded = () => {
-  console.log('音频播放结束')
+const handleEnded = async () => {
+  console.log('音频播放结束，当前循环模式:', loopMode.value)
+
+  if (isHandlingEnded.value) {
+    console.log('正在处理结束事件，跳过重复处理')
+    return
+  }
+
+  isHandlingEnded.value = true
+
+  try {
+    if (loopMode.value === 'one') {
+      // 单曲循环模式：重置到开头并播放
+      console.log('单曲循环模式，重新开始播放')
+      if (audioRef.value) {
+        // 先暂停，避免状态冲突
+        audioRef.value.pause()
+        // 重置播放位置
+        audioRef.value.currentTime = 0
+        currentTime.value = 0
+        sliderTime.value = 0
+
+        // 短暂延迟后重新播放，确保音频状态稳定
+        setTimeout(() => {
+          if (audioRef.value && currentMusic.value) {
+            audioRef.value.play().catch((error) => {
+              console.error('单曲循环重新播放失败:', error)
+              // 如果播放失败，重置播放状态
+              isPlaying.value = false
+            })
+          }
+        }, 100)
+      }
+    } else if (loopMode.value === 'all') {
+      // 列表循环模式：播放下一首
+      console.log('列表循环模式，播放下一首')
+      await playNext()
+    } else {
+      // 不循环模式：停止播放，重置状态
+      console.log('不循环模式，停止播放')
+      if (audioRef.value) {
+        audioRef.value.pause()
+        // 重置到开头
+        audioRef.value.currentTime = 0
+        currentTime.value = 0
+        sliderTime.value = 0
+      }
+      isPlaying.value = false
+    }
+  } catch (error) {
+    console.error('处理播放结束事件失败:', error)
+    ElMessage.error('播放控制出错')
+  } finally {
+    // 短暂延迟后重置处理状态
+    setTimeout(() => {
+      isHandlingEnded.value = false
+    }, 200)
+  }
 }
 
 const handleError = (error: any) => {
   console.error('音频播放错误:', error)
+
+  // 如果是单曲循环模式且正在处理结束事件，忽略某些错误
+  if (loopMode.value === 'one' && isHandlingEnded.value) {
+    console.log('单曲循环处理过程中的错误，忽略')
+    return
+  }
+
   showErrorDialog.value = true
   const audioElement = audioRef.value
   if (audioElement?.error) {
@@ -317,6 +389,45 @@ const handleError = (error: any) => {
   }
 }
 
+// 进度条输入事件（拖动过程中）
+const handleSliderInput = (value: number) => {
+  isSeeking.value = true
+  sliderTime.value = value
+}
+
+// 进度条改变事件（拖动结束或点击）
+const handleSliderChange = async (value: number) => {
+  // 防止在单曲循环结束时设置时间
+  if (isHandlingEnded.value) {
+    console.log('正在处理播放结束，跳过进度设置')
+    return
+  }
+
+  try {
+    isSeeking.value = false
+
+    // 检查是否接近结尾（避免在单曲循环模式下设置到最后一秒）
+    const safeValue = value >= duration.value - 0.5 ? Math.max(0, duration.value - 1) : value
+
+    await setCurrentTime(safeValue)
+    // 确保滑块值与实际时间同步
+    if (audioRef.value) {
+      const actualTime = audioRef.value.currentTime
+      sliderTime.value = actualTime
+      currentTime.value = actualTime
+    }
+  } catch (error) {
+    console.error('设置播放进度失败:', error)
+    // 出错时恢复滑块到实际位置
+    if (audioRef.value) {
+      const actualTime = audioRef.value.currentTime
+      sliderTime.value = actualTime
+      currentTime.value = actualTime
+    }
+    isSeeking.value = false
+  }
+}
+
 // 下载当前歌曲
 const handleDownload = async () => {
   if (currentMusic.value) {
@@ -328,6 +439,12 @@ const handleDownload = async () => {
 const handlePlayButtonClick = async () => {
   if (!initializationComplete.value) {
     ElMessage.warning('播放器正在初始化，请稍候...')
+    return
+  }
+
+  // 防止在单曲循环处理过程中操作
+  if (isHandlingEnded.value) {
+    ElMessage.warning('播放器正在处理，请稍候...')
     return
   }
 
@@ -396,6 +513,11 @@ onMounted(async () => {
 watch(isPlaying, async (playing) => {
   if (!audioRef.value || !currentMusic.value) return
 
+  // 防止在单曲循环处理过程中操作
+  if (isHandlingEnded.value) {
+    return
+  }
+
   try {
     if (playing) {
       console.log('开始播放音频...')
@@ -421,6 +543,13 @@ watch(isMuted, (muted) => {
     volumeValue.value = 0 // 静音时滑块显示0
   } else {
     volumeValue.value = volume.value == 0 ? 0.3 : volume.value // 取消静音时恢复原音量
+  }
+})
+
+// 监听当前时间变化，同步到滑块（确保在非拖动状态下）
+watch(currentTime, (newTime) => {
+  if (!isSeeking.value && !isHandlingEnded.value) {
+    sliderTime.value = newTime
   }
 })
 
