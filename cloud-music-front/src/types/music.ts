@@ -1,13 +1,13 @@
 export interface Music {
   id: string
-  createBy?: string | null
-  createTime?: string
-  updateBy?: string | null
+  createBy: string | null
+  createTime: string
+  updateBy: string | null
   updateTime?: string
-  deleted?: number
+  deleted: number
   title: string
   singer: string
-  album?: string | null
+  album: string | null
   duration: string
   filePath: string
   fileSize: string
@@ -50,4 +50,12 @@ export interface PlayerState {
   playbackRate: number
   isMuted: boolean
   loopMode: 'none' | 'one' | 'all'
+}
+
+// 更新音乐信息参数类型
+export interface UpdateMusicParams {
+  id: string
+  title: string
+  singer: string
+  album?: string
 }

@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { MusicListResponse, MusicQueryParams } from '@/types/music'
+import type { MusicListResponse, MusicQueryParams, UpdateMusicParams } from '@/types/music'
 
 export const musicApi = {
   // 音乐列表查询
@@ -30,6 +30,18 @@ export const musicApi = {
       headers: {
         Accept: 'audio/*', // 明确接受音频类型
       },
+    })
+  },
+
+  // 更新音乐信息
+  updateMusic(music: UpdateMusicParams) {
+    return request.put('/music/update', music)
+  },
+
+  // 删除音乐
+  deleteMusic(id: string) {
+    return request.delete('/music/delete', {
+      params: { id },
     })
   },
 }

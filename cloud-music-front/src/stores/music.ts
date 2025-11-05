@@ -420,6 +420,54 @@ export const useMusicStore = defineStore('music', () => {
     console.log('禁用自动播放')
   }
 
+  // 删除音乐
+  const deleteMusic = async (id: string) => {
+    try {
+      const response = await musicApi.deleteMusic(id)
+
+      if (response.success) {
+        // 从列表中移除
+        const index = musicList.value.findIndex((m) => m.id === id)
+        if (index !== -1) {
+          musicList.value.splice(index, 1)
+        }
+
+        // 如果删除的是当前播放的歌曲，停止播放
+        if (currentMusic.value?.id === id) {
+          stopPlayback()
+        }
+
+        // 更新分页总数
+        pagination.value.total = Math.max(0, pagination.value.total - 1)
+
+        console.log('删除音乐成功:', id)
+        return true
+      } else {
+        throw new Error(response.message || '删除失败')
+      }
+    } catch (error) {
+      console.error('删除音乐失败:', error)
+      throw error
+    }
+  }
+
+  // 停止播放（新增方法）
+  const stopPlayback = () => {
+    if (audioElement.value) {
+      audioElement.value.pause()
+      audioElement.value.currentTime = 0
+    }
+    isPlaying.value = false
+    currentTime.value = 0
+    currentMusic.value = null
+
+    // 清理blob URL
+    if (currentBlobUrl.value) {
+      URL.revokeObjectURL(currentBlobUrl.value)
+      currentBlobUrl.value = ''
+    }
+  }
+
   return {
     // 状态
     musicList,
@@ -459,5 +507,7 @@ export const useMusicStore = defineStore('music', () => {
     enableAutoPlay,
     disableAutoPlay,
     loadMusic,
+    deleteMusic,
+    stopPlayback,
   }
 })

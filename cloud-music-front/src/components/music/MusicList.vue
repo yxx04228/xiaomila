@@ -7,7 +7,7 @@
         style="width: 100%"
         :default-sort="{ prop: 'createTime', order: 'descending' }"
       >
-        <el-table-column label="歌曲" min-width="200">
+        <el-table-column label="歌曲" min-width="100">
           <template #default="{ row }">
             <div class="song-info">
               <div class="song-title">{{ row.title || '未知歌曲' }}</div>
@@ -16,7 +16,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="album" label="专辑" min-width="150">
+        <el-table-column prop="album" label="专辑" min-width="100">
           <template #default="{ row }">
             {{ row.album || '未知专辑' }}
           </template>
@@ -34,7 +34,7 @@
 
         <el-table-column prop="fileType" label="格式" width="80" />
 
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <el-button
               size="small"
@@ -43,6 +43,17 @@
               :loading="isCurrentPlaying(row) && audioLoading"
             >
               {{ getPlayButtonText(row) }}
+            </el-button>
+            <el-button size="small" @click="handleEdit(row)" :loading="editingId === row.id">
+              修改
+            </el-button>
+            <el-button
+              size="small"
+              @click="handleDelete(row)"
+              type="danger"
+              :loading="deletingId === row.id"
+            >
+              删除
             </el-button>
             <el-button
               size="small"
@@ -87,15 +98,61 @@
         </div>
       </div>
     </div>
+
+    <!-- 修改歌曲信息对话框 -->
+    <el-dialog
+      v-model="editDialogVisible"
+      title="修改歌曲信息"
+      width="500px"
+      :before-close="handleEditDialogClose"
+    >
+      <el-form :model="editForm" :rules="editFormRules" ref="editFormRef" label-width="80px">
+        <el-form-item label="歌曲名称" prop="title">
+          <el-input
+            v-model="editForm.title"
+            placeholder="请输入歌曲名称"
+            maxlength="100"
+            show-word-limit
+          />
+        </el-form-item>
+
+        <el-form-item label="歌手" prop="singer">
+          <el-input
+            v-model="editForm.singer"
+            placeholder="请输入歌手名称"
+            maxlength="50"
+            show-word-limit
+          />
+        </el-form-item>
+
+        <el-form-item label="专辑" prop="album">
+          <el-input
+            v-model="editForm.album"
+            placeholder="请输入专辑名称"
+            maxlength="100"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="handleEditDialogClose">取消</el-button>
+        <el-button type="primary" @click="handleEditSubmit" :loading="editingId !== ''">
+          确认修改
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import type { Music } from '@/types/music'
 import { useMusicStore } from '@/stores/music'
 import { storeToRefs } from 'pinia'
 import { UploadFilled } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { musicApi } from '@/api/music'
 
 interface Props {
   musicList: Music[]
@@ -112,10 +169,39 @@ const emit = defineEmits<{
   play: [music: Music]
   download: [music: Music]
   pageChange: [page: number]
+  refresh: [] // 刷新列表事件
 }>()
 
 // 跟踪正在下载的歌曲ID
 const downloadingId = ref<string>('')
+const editingId = ref<string>('')
+const deletingId = ref<string>('')
+const editDialogVisible = ref(false)
+const editFormRef = ref<FormInstance>()
+
+// 编辑表单数据
+const editForm = reactive({
+  id: '',
+  title: '',
+  singer: '',
+  album: '',
+})
+
+// 表单验证规则
+const editFormRules: FormRules = {
+  title: [
+    { required: true, message: '请输入歌曲名称', trigger: 'blur' },
+    { min: 1, max: 100, message: '歌曲名称长度在 1 到 100 个字符', trigger: 'blur' },
+  ],
+  singer: [
+    { required: true, message: '请输入歌手名称', trigger: 'blur' },
+    { min: 1, max: 50, message: '歌手名称长度在 1 到 50 个字符', trigger: 'blur' },
+  ],
+  album: [
+    { required: false, message: '请输入专辑名称', trigger: 'blur' },
+    { max: 100, message: '专辑名称长度不能超过 100 个字符', trigger: 'blur' },
+  ],
+}
 
 // 获取音乐 store
 const musicStore = useMusicStore()
@@ -142,6 +228,97 @@ const handlePlayPause = async (music: Music) => {
   } else {
     // 如果不是当前播放的歌曲，播放新歌曲
     emit('play', music)
+  }
+}
+
+// 处理修改点击
+const handleEdit = (music: Music) => {
+  // 填充表单数据
+  editForm.id = music.id
+  editForm.title = music.title || ''
+  editForm.singer = music.singer || ''
+  editForm.album = music.album || ''
+
+  editDialogVisible.value = true
+}
+
+// 处理修改对话框关闭
+const handleEditDialogClose = () => {
+  editDialogVisible.value = false
+  if (editFormRef.value) {
+    editFormRef.value.clearValidate()
+  }
+  // 重置表单
+  Object.assign(editForm, {
+    id: '',
+    title: '',
+    singer: '',
+    album: '',
+  })
+}
+
+// 处理修改提交
+const handleEditSubmit = async () => {
+  if (!editFormRef.value) return
+
+  // 表单验证
+  try {
+    await editFormRef.value.validate()
+  } catch (error) {
+    ElMessage.warning('请完善表单信息')
+    return
+  }
+
+  editingId.value = editForm.id
+
+  try {
+    // 调用更新接口
+    const response = await musicApi.updateMusic(editForm)
+
+    if (response.success) {
+      ElMessage.success('修改成功')
+      editDialogVisible.value = false
+      // 触发刷新列表事件
+      emit('refresh')
+    } else {
+      throw new Error(response.message || '更新失败')
+    }
+  } catch (error: any) {
+    console.error('修改歌曲信息失败:', error)
+    ElMessage.error(`修改失败: ${error.message || '请稍后重试'}`)
+  } finally {
+    editingId.value = ''
+  }
+}
+
+// 处理删除点击
+const handleDelete = async (music: Music) => {
+  try {
+    // 确认删除对话框
+    await ElMessageBox.confirm(`确定要删除歌曲 "${music.title}" 吗？此操作不可恢复。`, '删除确认', {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+      confirmButtonClass: 'el-button--danger',
+    })
+
+    deletingId.value = music.id
+
+    try {
+      // 调用store的删除方法
+      await musicStore.deleteMusic(music.id)
+      ElMessage.success('删除成功')
+      // 触发刷新事件，父组件可以重新获取数据
+      emit('refresh')
+    } catch (error: any) {
+      console.error('删除歌曲失败:', error)
+      ElMessage.error(`删除失败: ${error.message || '请稍后重试'}`)
+    } finally {
+      deletingId.value = ''
+    }
+  } catch (error) {
+    // 用户取消删除
+    console.log('用户取消删除')
   }
 }
 </script>
@@ -244,8 +421,9 @@ const handlePlayPause = async (music: Music) => {
 }
 
 .music-list .el-button {
-  margin-right: 6px;
-  border-radius: 4px;
+  margin-right: 4px;
+  margin-bottom: 2px;
+  border-radius: 3px;
   padding: 3px 10px;
   font-size: 11px;
 }
@@ -406,8 +584,8 @@ const handlePlayPause = async (music: Music) => {
   }
 
   .music-list .el-button {
-    margin-right: 4px;
-    padding: 2px 8px;
+    margin-right: 2px;
+    padding: 2px 6px;
     font-size: 10px;
   }
 

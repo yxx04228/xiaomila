@@ -39,6 +39,7 @@
         @play="handlePlay"
         @download="handleDownload"
         @page-change="handlePageChange"
+        @refresh="handleRefresh"
       />
     </div>
   </div>
@@ -111,6 +112,11 @@ const handleDownload = async (music: Music) => {
 
 const handlePageChange = (page: number) => {
   musicStore.pagination.current = page
+  loadMusicList()
+}
+
+// 刷新列表
+const handleRefresh = () => {
   loadMusicList()
 }
 
