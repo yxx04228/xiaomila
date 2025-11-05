@@ -35,6 +35,7 @@ export interface MusicListResponse {
 
 export interface MusicQueryParams {
   title?: string
+  singer?: string
   nCurrent: number
   nSize: number
 }

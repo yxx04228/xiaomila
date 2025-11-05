@@ -5,12 +5,22 @@
       <div class="search-area">
         <el-input
           v-model="searchTitle"
-          placeholder="搜索歌曲..."
+          placeholder="歌曲名称"
           clearable
           @clear="handleSearch"
           @keyup.enter="handleSearch"
-          @input="handleInput"
+          class="composite-search"
         >
+          <template #prepend>
+            <el-input
+              v-model="searchSinger"
+              placeholder="歌手名称"
+              clearable
+              @clear="handleSearch"
+              @keyup.enter="handleSearch"
+              style="width: 150px; border: none; --el-input-border-color: transparent"
+            />
+          </template>
           <template #append>
             <el-button @click="handleSearch">
               <el-icon><Search /></el-icon>
@@ -45,11 +55,13 @@ import { downloadMusicFile } from '@/utils/download'
 
 const musicStore = useMusicStore()
 const searchTitle = ref('')
+const searchSinger = ref('')
 const searchTimer = ref<number>()
 
 const loadMusicList = () => {
   musicStore.fetchMusicList({
     title: searchTitle.value,
+    singer: searchSinger.value,
     nCurrent: musicStore.pagination.current,
     nSize: musicStore.pagination.pageSize,
   })
@@ -149,8 +161,22 @@ onUnmounted(() => {
 }
 
 .search-area {
-  width: 360px;
-  max-width: 100%;
+  margin-bottom: 20px;
+}
+.composite-search {
+  max-width: 500px;
+}
+:deep(.composite-search .el-input-group__prepend) {
+  background-color: #fff;
+  border-right: 1px solid #dcdfe6;
+  padding: 0;
+}
+:deep(.composite-search .el-input-group__prepend .el-input) {
+  --el-input-bg-color: transparent;
+}
+:deep(.composite-search .el-input-group__prepend .el-input__wrapper) {
+  box-shadow: none;
+  border: none;
 }
 
 /* 音乐列表容器 - 关键修复 */
