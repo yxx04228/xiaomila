@@ -1,6 +1,6 @@
 <template>
   <div class="music-player">
-    <div v-if="currentMusic" class="player-content">
+    <div v-if="currentMusic" class="player-container">
       <!-- 播放器内容 -->
       <div class="player-content">
         <!-- 歌曲信息 -->
@@ -46,12 +46,11 @@
             <el-button :icon="ArrowRight" text @click="playNext" title="下一首" />
             <!-- 静音按钮 -->
             <el-button
-              :icon="Microphone"
+              :icon="isMuted || volumeValue === 0 ? Mute : Microphone"
               text
               @click="toggleMute"
-              :type="isMuted ? 'danger' : ''"
+              :type="isMuted || volumeValue === 0 ? 'danger' : ''"
               :title="muteTitle"
-              class="mute-button"
             />
           </div>
 
@@ -112,7 +111,16 @@
       </div>
     </div>
     <div v-else class="player-placeholder">
-      <el-empty description="暂无播放内容" :image-size="80" />
+      <div class="elegant-placeholder">
+        <div class="music-waves">
+          <div class="wave"></div>
+          <div class="wave"></div>
+          <div class="wave"></div>
+        </div>
+        <div class="placeholder-info">
+          <h3>等待播放</h3>
+        </div>
+      </div>
     </div>
 
     <!-- 音频元素始终存在 -->
@@ -162,6 +170,7 @@ import {
   CircleClose,
   // 音量图标
   Microphone,
+  Mute,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useMusicStore } from '@/stores/music'
@@ -209,7 +218,7 @@ const loopConfig = computed(() => {
       return {
         icon: RefreshRight, // 单曲循环图标
         title: '单曲循环',
-        color: 'primary',
+        color: 'success',
       }
     case 'all':
       return {
@@ -221,18 +230,18 @@ const loopConfig = computed(() => {
       return {
         icon: CircleClose, // 不循环图标
         title: '不循环',
-        color: '',
+        color: 'info',
       }
   }
 })
 
 // 获取音量图标
 const volumeIcon = computed(() => {
-  if (isMuted.value || volume.value === 0) {
+  if (isMuted.value || volumeValue.value === 0) {
     return VolumeMute
-  } else if (volume.value < 0.3) {
+  } else if (volumeValue.value < 0.3) {
     return VolumeLow
-  } else if (volume.value < 0.7) {
+  } else if (volumeValue.value < 0.7) {
     return VolumeMedium
   } else {
     return VolumeHigh
@@ -411,7 +420,7 @@ watch(isMuted, (muted) => {
   if (muted) {
     volumeValue.value = 0 // 静音时滑块显示0
   } else {
-    volumeValue.value = volume.value // 取消静音时恢复原音量
+    volumeValue.value = volume.value == 0 ? 0.3 : volume.value // 取消静音时恢复原音量
   }
 })
 
@@ -440,23 +449,72 @@ onUnmounted(() => {
 }
 
 .player-placeholder {
-  padding: 20px;
   text-align: center;
-  min-height: 80px;
   display: flex;
+  height: 25%;
   align-items: center;
   justify-content: center;
+}
+.elegant-placeholder {
+  height: 100%;
+  text-align: center;
+}
+.music-waves {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 4px;
+  height: 30px;
+}
+.wave {
+  width: 5px;
+  background: #4299e1;
+  border-radius: 2px;
+  animation: wave 1.2s ease-in-out infinite;
+}
+.wave:nth-child(1) {
+  height: 15px;
+  animation-delay: 0s;
+}
+.wave:nth-child(2) {
+  height: 25px;
+  animation-delay: 0.3s;
+}
+.wave:nth-child(3) {
+  height: 20px;
+  animation-delay: 0.4s;
+}
+@keyframes wave {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.5);
+  }
+}
+.placeholder-info h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.player-container {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-height: 70px;
+  width: 80%;
 }
 
 .player-content {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 20px; /* 增加间距，与内容区域协调 */
   height: 100%;
   min-height: 70px;
   width: 80%;
-  padding: 10px;
+  margin: 17px auto 3px;
 }
 
 /* 歌曲信息样式 */
@@ -525,16 +583,29 @@ onUnmounted(() => {
   gap: 20px; /* 增加按钮间距 */
 }
 
-.loop-button,
-.mute-button {
-  --el-button-text-color: #4a5568;
-  --el-button-hover-text-color: #4299e1;
-  transition: all 0.2s ease;
+.loop-button {
+  position: relative;
 }
-
-.loop-button.loop-mode-one,
-.loop-button.loop-mode-all {
-  --el-button-text-color: #4299e1;
+.loop-button::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+/* 不同循环模式的状态点颜色 */
+.loop-mode-none::after {
+  background-color: #909399; /* 灰色 - 列表循环 */
+}
+.loop-mode-one::after {
+  background-color: #10d361; /* 绿色 - 单曲循环 */
+}
+.loop-mode-all::after {
+  background-color: #409eff; /* 蓝色 - 顺序播放 */
 }
 
 .control-buttons .el-button--circle.el-button--primary {
@@ -571,10 +642,11 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-/* 进度条滑块样式 - 修复版本 */
+/* 进度条滑块样式 - 轨道点击跳转版本 */
 .progress-slider {
   flex: 1;
   cursor: pointer;
+  position: relative;
 }
 :deep(.progress-slider) {
   --el-slider-rail-height: 3px;
@@ -582,32 +654,53 @@ onUnmounted(() => {
   --el-slider-thumb-size: 10px;
 }
 :deep(.progress-slider .el-slider__runway) {
-  height: 5px;
-  margin: 10px 0; /* 调整上下边距 */
+  height: 3px; /* 保持原有轨道高度 */
+  margin: 15px 0; /* 增加上下边距来扩大点击区域 */
   background-color: #e2e8f0;
   border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+}
+/* 创建透明的扩大点击区域 */
+:deep(.progress-slider .el-slider__runway::before) {
+  content: '';
+  position: absolute;
+  top: -10px; /* 向上扩展点击区域 */
+  left: 0;
+  right: 0;
+  bottom: -10px; /* 向下扩展点击区域 */
+  z-index: 1;
+  cursor: pointer;
 }
 :deep(.progress-slider .el-slider__bar) {
-  height: 5px;
+  height: 3px; /* 保持原有进度条高度 */
   background-color: #4299e1;
   border-radius: 2px;
 }
+/* 扩大滑块点击区域 */
 :deep(.progress-slider .el-slider__button-wrapper) {
-  width: 5px; /* 点击区域 */
-  height: 5px;
-  top: -11px; /* 调整垂直位置，让滑块居中 */
+  width: 24px; /* 扩大点击区域 */
+  height: 24px;
+  top: -11px; /* 调整垂直位置 */
   transform: translateX(-50%);
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 :deep(.progress-slider .el-slider__button) {
-  width: 10px;
-  height: 10px;
-  border: 2px solid #fff;
+  width: 8px;
+  height: 8px;
+  border: 1px solid #fff;
   background-color: #4299e1;
-  box-shadow: 0 1px 3px rgba(66, 153, 225, 0.4);
+  box-shadow: 0 1px 2px rgba(66, 153, 225, 0.4);
+  transition: all 0.2s ease;
 }
 /* 悬停状态 */
-:deep(.progress-slider:hover .el-slider__button) {
+:deep(.progress-slider .el-slider__button-wrapper:hover .el-slider__button) {
   transform: scale(1.3);
+  background-color: #3182ce;
 }
 
 /* 额外控制样式 */
@@ -630,48 +723,125 @@ onUnmounted(() => {
   font-size: 18px;
 }
 
-/* 音量控制样式 */
+/* 音量控制容器 */
 .volume-control-wrapper {
   position: relative;
-  display: flex;
-  align-items: center;
+  display: inline-block;
 }
 
+/* 音量按钮 */
 .volume-control-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.volume-control-button:hover {
+  background-color: rgba(0, 0, 0, 0.04);
 }
 
 .volume-icon {
-  font-size: 18px;
+  font-size: 15px;
 }
 
+/* 原生弹出框 */
 .native-volume-popover {
   position: absolute;
-  bottom: 40px;
-  right: 0;
-  background: #fff;
-  padding: 12px;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  background: #ffffff;
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  border: 1px solid #e4e7ed;
+  padding: 16px 8px;
+  z-index: 2000;
+  min-width: 60px;
 }
 
+/* 音量控制区域 */
 .volume-control {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
-.volume-slider {
-  --el-slider-rail-height: 4px;
-  --el-slider-track-height: 4px;
-  --el-slider-thumb-size: 10px;
+/* 使用新的 :deep() 语法 */
+:deep(.volume-slider) {
+  width: 3px !important;
+}
+
+:deep(.volume-slider .el-slider__runway) {
+  width: 3px;
+  background-color: #e4e7ed;
+  border-radius: 3px;
+  margin: 0 auto;
+}
+
+:deep(.volume-slider .el-slider__runway.vertical) {
+  margin: 0 auto;
+}
+
+:deep(.volume-slider .el-slider__bar) {
+  width: 3px;
+  background-color: #409eff;
+  border-radius: 2px;
+  transition: background-color 0.3s ease;
+}
+
+:deep(.volume-slider .el-slider__bar:hover) {
+  background-color: #3375b9;
+}
+
+:deep(.volume-slider .el-slider__button) {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #409eff;
+  background-color: #ffffff;
+  transition: all 0.3s ease;
+  margin-left: -3px;
+}
+
+:deep(.volume-slider .el-slider__button:hover) {
+  transform: scale(1.1);
+  border-color: #3375b9;
+}
+
+:deep(.volume-slider .el-slider__button:active) {
+  transform: scale(1.2);
+}
+
+/* 音量百分比显示 */
+.volume-percent {
+  font-size: 12px;
+  color: #909399;
+  font-weight: 500;
+  min-width: 40px;
+  text-align: center;
+  padding: 2px 6px;
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+/* 动画效果 */
+.native-volume-popover {
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 .volume-percent {

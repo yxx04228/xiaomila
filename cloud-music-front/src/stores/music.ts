@@ -293,8 +293,17 @@ export const useMusicStore = defineStore('music', () => {
   // 设置音量
   const setVolume = (value: number) => {
     volume.value = value
+
+    // 如果设置音量大于0，自动取消静音
+    if (value > 0) {
+      isMuted.value = false
+    } else {
+      isMuted.value = true
+    }
+
     if (audioElement.value) {
       audioElement.value.volume = value
+      audioElement.value.muted = isMuted.value
     }
   }
 
@@ -302,6 +311,9 @@ export const useMusicStore = defineStore('music', () => {
   const toggleMute = () => {
     isMuted.value = !isMuted.value
     if (audioElement.value) {
+      if (audioElement.value.volume == 0) {
+        audioElement.value.volume = 0.3
+      }
       audioElement.value.muted = isMuted.value
     }
   }

@@ -160,9 +160,6 @@ onUnmounted(() => {
   margin: 0;
 }
 
-.search-area {
-  margin-bottom: 20px;
-}
 .composite-search {
   max-width: 500px;
 }

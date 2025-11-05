@@ -1,6 +1,6 @@
 <template>
   <div class="music-list">
-    <div class="table-container">
+    <div class="table-container" v-if="pagination.total > 0">
       <el-table
         :data="musicList"
         v-loading="loading"
@@ -68,7 +68,24 @@
     </div>
 
     <div v-if="!loading && musicList.length === 0" class="empty-state">
-      <el-empty description="暂无音乐数据" />
+      <div class="illustration-empty">
+        <div class="music-scene">
+          <div class="record-player">
+            <div class="record"></div>
+            <div class="tone-arm"></div>
+          </div>
+        </div>
+        <div class="illustration-text">
+          <h3>音乐库等待中</h3>
+          <p>添加一些音乐让播放器活跃起来</p>
+        </div>
+        <div class="illustration-actions">
+          <el-button type="primary" @click="$emit('upload')">
+            <el-icon><UploadFilled /></el-icon>
+            上传音乐
+          </el-button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -78,6 +95,7 @@ import { ref } from 'vue'
 import type { Music } from '@/types/music'
 import { useMusicStore } from '@/stores/music'
 import { storeToRefs } from 'pinia'
+import { UploadFilled } from '@element-plus/icons-vue'
 
 interface Props {
   musicList: Music[]
@@ -276,9 +294,81 @@ const handlePlayPause = async (music: Music) => {
   justify-content: center;
   min-height: 200px; /* 确保空状态有最小高度 */
 }
-
-.music-list .el-empty {
-  --el-empty-text-color: #718096;
+.illustration-empty {
+  text-align: center;
+  padding: 60px 24px;
+}
+.music-scene {
+  margin-bottom: 32px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.record-player {
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+.record {
+  width: 60px;
+  height: 60px;
+  border: 8px solid #e2e8f0;
+  border-radius: 50%;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  animation: spin 4s linear infinite;
+}
+.record::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background: #cbd5e1;
+  border-radius: 50%;
+}
+.tone-arm {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 3px;
+  background: #cbd5e1;
+  transform-origin: left center;
+  transform: rotate(-30deg);
+  animation: toneArm 4s ease-in-out infinite;
+}
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes toneArm {
+  0%,
+  100% {
+    transform: rotate(-30deg);
+  }
+  50% {
+    transform: rotate(-20deg);
+  }
+}
+.illustration-text h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+.illustration-text p {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 24px;
 }
 
 /* 加载状态样式 */
