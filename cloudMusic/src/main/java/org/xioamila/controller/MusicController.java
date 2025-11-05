@@ -37,8 +37,8 @@ public class MusicController {
             @Parameter(name = "title", description = "歌曲标题", in = ParameterIn.QUERY, schema = @Schema(type = "string"))
     })
     public Result<IPage<Music>> getPageList(@RequestParam(required = false) String title,
-                                           @Parameter(description = "当前页数") @RequestParam(defaultValue = "1") Integer nCurrent,
-                                           @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer nSize) {
+                                            @Parameter(description = "当前页数") @RequestParam(defaultValue = "1") Integer nCurrent,
+                                            @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer nSize) {
 
         QueryWrapper<Music> queryWrapper = new QueryWrapper<>();
 
@@ -53,11 +53,8 @@ public class MusicController {
     @Operation(summary = "音乐文件上传")
     @PostMapping(value = "/upload")
     public Result<String> uploadMusic(
-            @Parameter(description = "音乐文件") @RequestParam("file") MultipartFile file,
-            @Parameter(description = "标题") @RequestParam String title,
-            @Parameter(description = "歌手") @RequestParam String singer,
-            @Parameter(description = "专辑") @RequestParam(required = false) String album) {
-        return musicService.uploadMusic(file, title, singer, album);
+            @Parameter(description = "音乐文件") @RequestParam("file") MultipartFile file) {
+        return Result.data(musicService.uploadMusic(file));
     }
 
     @Operation(summary = "音乐文件下载")
@@ -70,5 +67,17 @@ public class MusicController {
     @GetMapping(value = "/play")
     public ResponseEntity<Resource> play(@Parameter(description = "文件ID") @RequestParam("id") String id, HttpServletRequest request) {
         return musicService.playMusic(id, request);
+    }
+
+    @PutMapping("/update")
+    @Operation(summary = "更新音乐")
+    public Result<Boolean> updateUser(@RequestBody Music music) {
+        return Result.data(musicService.updateMusic(music));
+    }
+
+    @DeleteMapping("/delete")
+    @Operation(summary = "删除音乐")
+    public Result<Boolean> deleteUser(@Parameter(description = "音乐ID") @RequestParam("id") String id) {
+        return Result.data(musicService.removeById(id));
     }
 }

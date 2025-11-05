@@ -1,11 +1,13 @@
 package org.xioamila.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.greatmap.modules.core.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +20,6 @@ import org.xioamila.vo.Result;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
@@ -31,18 +32,20 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
     @Value("${music.file.path}")
     private String musicFilePath;
 
+    private final MusicMapper musicMapper;
+
     @Transactional
     @Override
-    public Result<String> uploadMusic(MultipartFile file, String title, String singer, String album) {
+    public String uploadMusic(MultipartFile file) {
         try {
             // 验证文件是否为空
             if (file.isEmpty()) {
-                return Result.error("上传失败：文件不能为空");
+                throw new ServiceException("上传失败：文件不能为空");
             }
 
             // 验证文件类型
             if (!FileParseUtil.isAudioFile(file)) {
-                return Result.error("上传失败：文件不是有效的音频文件");
+                throw new ServiceException("上传失败：文件不是有效的音频文件");
             }
 
             // 解析文件信息
@@ -50,6 +53,18 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
             String fileExtension = (String) fileInfo.get("fileExtension");
             String formattedFileSize = (String) fileInfo.get("fileSize");
             String duration = (String) fileInfo.get("duration");
+            String title = (String) fileInfo.get("title");
+            String singer = (String) fileInfo.get("singer");
+
+            // 验证是否已存在该歌曲（title + singer）
+            LambdaQueryWrapper<Music> queryWrapper = Wrappers.lambdaQuery(Music.class)
+                    .eq(Music::getTitle, title)
+                    .eq(Music::getSinger, singer);
+
+            long count = musicMapper.selectCount(queryWrapper);
+            if (count > 0) {
+                throw new ServiceException("歌曲已存在：" + singer + " - " + title);
+            }
 
             // 获取项目根目录的绝对路径
             String projectRoot = System.getProperty("user.dir");
@@ -69,7 +84,6 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
             Music music = new Music();
             music.setTitle(title);
             music.setSinger(singer);
-            music.setAlbum(album);
             music.setDuration(duration);
             music.setFileType(fileExtension);
             music.setFilePath(saveFile.getAbsolutePath());
@@ -79,21 +93,23 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
             boolean saveResult = this.save(music);
 
             if (saveResult) {
-                return Result.success("音乐文件上传成功");
+                return "音乐文件上传成功";
             } else {
                 // 如果数据库保存失败，删除已上传的文件
                 if (saveFile.exists()) {
                     saveFile.delete();
                 }
-                return Result.error("上传失败：数据库保存失败");
+                throw new ServiceException("上传失败：数据库保存失败");
             }
 
+        } catch (ServiceException e) {
+            throw e; // 业务异常直接抛出
         } catch (IOException e) {
             log.error("上传音乐文件失败", e);
-            return Result.error("上传失败：文件保存异常");
+            throw new ServiceException("上传失败：文件保存异常");
         } catch (Exception e) {
             log.error("上传音乐文件发生未知错误", e);
-            return Result.error("上传失败：系统异常");
+            throw new ServiceException("上传失败：系统异常");
         }
     }
 
@@ -172,5 +188,21 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
             log.error("播放音乐文件失败, id: {}", id, e);
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    @Override
+    @Transactional
+    public boolean updateMusic(Music music) {
+        // 验证是否已存在该歌曲（title + singer）
+        LambdaQueryWrapper<Music> queryWrapper = Wrappers.lambdaQuery(Music.class)
+                .eq(Music::getTitle, music.getTitle())
+                .eq(Music::getSinger, music.getSinger());
+
+        long count = musicMapper.selectCount(queryWrapper);
+        if (count > 0) {
+            throw new ServiceException("歌曲已存在：" + music.getSinger() + " - " + music.getTitle());
+        }
+
+        return this.updateById(music);
     }
 }

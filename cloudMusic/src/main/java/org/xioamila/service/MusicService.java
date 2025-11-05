@@ -14,7 +14,7 @@ public interface MusicService extends IService<Music> {
     /**
      * 上传音乐文件
      */
-    Result<String> uploadMusic(MultipartFile file, String title, String singer, String album);
+    String uploadMusic(MultipartFile file);
 
     /**
      * 下载音乐文件
@@ -25,4 +25,9 @@ public interface MusicService extends IService<Music> {
      * 播放音乐文件
      */
     ResponseEntity<Resource> playMusic(String id, HttpServletRequest request);
+
+    /**
+     * 更新音乐信息
+     */
+    boolean updateMusic(Music music);
 }

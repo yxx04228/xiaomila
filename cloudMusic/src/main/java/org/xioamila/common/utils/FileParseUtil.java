@@ -42,13 +42,41 @@ public class FileParseUtil {
     public static Map<String, Object> parseMusicFile(MultipartFile file) {
         Map<String, Object> result = new HashMap<>();
 
-        // 获取文件扩展名
+        // 获取文件扩展名、歌曲名称、歌手（文件名：歌手 - 歌曲名称.文件扩展名）
         String originalFilename = file.getOriginalFilename();
         String fileExtension = "";
-        if (originalFilename != null && originalFilename.contains(".")) {
-            fileExtension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
+        String title = "";
+        String singer = "";
+
+        if (StringUtils.hasText(originalFilename)) {
+            // 获取文件扩展名
+            int lastDotIndex = originalFilename.lastIndexOf(".");
+            if (lastDotIndex > 0 && lastDotIndex < originalFilename.length() - 1) {
+                fileExtension = originalFilename.substring(lastDotIndex + 1).toLowerCase();
+            }
+
+            // 获取文件名（不含扩展名）
+            String fileNameWithoutExt = originalFilename;
+            if (lastDotIndex > 0) {
+                fileNameWithoutExt = originalFilename.substring(0, lastDotIndex);
+            }
+
+            // 解析歌手和歌曲名称（格式：歌手 - 歌曲名称）
+            if (fileNameWithoutExt.contains(" - ")) {
+                String[] parts = fileNameWithoutExt.split("-", 2);
+                if (parts.length == 2) {
+                    singer = parts[0].trim();
+                    title = parts[1].trim();
+                }
+            } else {
+                // 如果没有分隔符，整个文件名作为歌曲名称
+                title = fileNameWithoutExt.trim();
+            }
         }
+
         result.put("fileExtension", fileExtension);
+        result.put("title", title);
+        result.put("singer", singer);
 
         // 获取文件大小（字节）
         long fileSizeBytes = file.getSize();
