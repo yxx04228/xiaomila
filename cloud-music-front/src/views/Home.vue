@@ -139,7 +139,9 @@
                             :show-text="false"
                             :stroke-width="6"
                           />
-                          <span class="progress-text">{{ file.percentage || 0 }}%</span>
+                          <span class="progress-text"
+                            >{{ (file.percentage || 0).toFixed(2) }}%</span
+                          >
                         </div>
                       </template>
                       <template v-else-if="file.status === 'success'">
