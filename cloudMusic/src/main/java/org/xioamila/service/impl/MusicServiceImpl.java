@@ -273,8 +273,10 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
         }
 
         try {
-            // 删除物理文件
+            // 删除音乐文件
             deleteMusicFile(music.getFilePath());
+            // 删除音乐封面文件
+            deleteCoverFile(music.getCoverUrl());
 
             // 删除数据库记录
             return this.removeById(id);
@@ -286,7 +288,7 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
     }
 
     /**
-     * 删除文件 - 失败时抛出异常，触发事务回滚
+     * 删除音乐文件 - 失败时抛出异常，触发事务回滚
      */
     private void deleteMusicFile(String filePath) throws ServiceException {
         try {
@@ -322,6 +324,46 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
         } catch (IOException e) {
             log.error("删除音乐文件失败: {}", filePath, e);
             throw new ServiceException("删除音乐文件失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 删除音乐封面文件 - 失败时抛出异常，触发事务回滚
+     */
+    private void deleteCoverFile(String filePath) throws ServiceException {
+        try {
+            if (StringUtils.isBlank(filePath)) {
+                return; // 没有文件路径，直接返回
+            }
+
+            // 获取项目的绝对基础路径
+            String projectRoot = System.getProperty("user.dir");
+            String absoluteCoverPath = new File(projectRoot, coverFilePath).getAbsolutePath();
+            Path basePath = Paths.get(absoluteCoverPath).toAbsolutePath().normalize();
+
+            // 构建完整文件路径
+            Path fileFullPath = basePath.resolve(filePath).normalize();
+
+            // 路径安全检查 - 修正：比较两个绝对路径
+            if (!fileFullPath.startsWith(basePath)) {
+                log.error("非法文件路径尝试: basePath={}, filePath={}", basePath, fileFullPath);
+                throw new ServiceException("非法文件路径: " + filePath);
+            }
+
+            // 检查文件是否存在且是普通文件
+            if (Files.exists(fileFullPath) && !Files.isRegularFile(fileFullPath)) {
+                throw new ServiceException("目标路径不是普通文件: " + filePath);
+            }
+
+            boolean deleted = Files.deleteIfExists(fileFullPath);
+            if (!deleted) {
+                log.warn("音乐封面文件不存在: {}", fileFullPath);
+            }
+            log.info("音乐封面文件删除成功: {}", fileFullPath);
+
+        } catch (IOException e) {
+            log.error("删除音乐封面文件失败: {}", filePath, e);
+            throw new ServiceException("删除音乐封面文件失败: " + e.getMessage(), e);
         }
     }
 
