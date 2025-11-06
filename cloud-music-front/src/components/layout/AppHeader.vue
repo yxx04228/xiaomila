@@ -6,7 +6,7 @@
       </div>
       <nav class="nav">
         <router-link to="/" class="nav-link">发现音乐</router-link>
-        <router-link to="/upload" class="nav-link">上传音乐</router-link>
+        <router-link to="/" class="nav-link">我的歌单</router-link>
       </nav>
       <div class="user-area">
         <template v-if="userStore.isLoggedIn">
