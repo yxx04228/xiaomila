@@ -12,7 +12,7 @@
         <el-icon class="el-icon--upload"><upload-filled /></el-icon>
         <div class="el-upload__text">将音乐文件拖到此处，或<em>点击上传</em></div>
         <template #tip>
-          <div class="el-upload__tip">支持 mp3、wav 格式文件，且不超过 50MB</div>
+          <div class="el-upload__tip">支持 mp3、wav、flac等格式文件，且不超过 100MB</div>
         </template>
       </el-upload>
     </div>
@@ -24,14 +24,14 @@ import { UploadFilled } from '@element-plus/icons-vue'
 
 const beforeUpload = (file: File) => {
   const isAudio = file.type.includes('audio/')
-  const isLt50M = file.size / 1024 / 1024 < 50
+  const isLt100M = file.size / 1024 / 1024 < 100
 
   if (!isAudio) {
     ElMessage.error('只能上传音频文件!')
     return false
   }
-  if (!isLt50M) {
-    ElMessage.error('音频文件大小不能超过 50MB!')
+  if (!isLt100M) {
+    ElMessage.error('音频文件大小不能超过 100MB!')
     return false
   }
   return true

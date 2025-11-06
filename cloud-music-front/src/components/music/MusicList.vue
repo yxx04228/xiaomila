@@ -34,7 +34,7 @@
 
         <el-table-column prop="fileType" label="格式" width="80" />
 
-        <el-table-column label="操作" width="300" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button
               size="small"
@@ -89,12 +89,6 @@
         <div class="illustration-text">
           <h3>音乐库等待中</h3>
           <p>添加一些音乐让播放器活跃起来</p>
-        </div>
-        <div class="illustration-actions">
-          <el-button type="primary" @click="$emit('upload')">
-            <el-icon><UploadFilled /></el-icon>
-            上传音乐
-          </el-button>
         </div>
       </div>
     </div>
