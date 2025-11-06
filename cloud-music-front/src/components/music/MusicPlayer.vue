@@ -6,7 +6,12 @@
         <!-- 歌曲信息 -->
         <div class="song-info">
           <div class="album-cover">
-            <el-avatar :size="50" :src="getAlbumCover(currentMusic)" shape="square">
+            <el-avatar
+              :size="50"
+              :src="getCoverUrl(currentMusic)"
+              shape="square"
+              @error="handleCoverError"
+            >
               <el-icon><Headset /></el-icon>
             </el-avatar>
           </div>
@@ -190,6 +195,7 @@ const {
   audioLoading,
   audioElementReady,
   musicList,
+  getCoverUrl,
 } = storeToRefs(musicStore)
 
 const {
@@ -268,9 +274,9 @@ const muteTitle = computed(() => {
   return isMuted.value ? '取消静音' : '静音'
 })
 
-// 获取专辑封面（模拟）
-const getAlbumCover = (music: any) => {
-  return ''
+// 封面加载错误处理
+const handleCoverError = () => {
+  console.log('封面加载失败，使用默认图标')
 }
 
 // 音频事件处理

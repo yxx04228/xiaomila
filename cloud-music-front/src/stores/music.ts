@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { Music, MusicQueryParams } from '@/types/music'
 import { musicApi } from '@/api/music'
 
@@ -19,7 +19,10 @@ export const useMusicStore = defineStore('music', () => {
   const audioLoading = ref(false)
   const autoPlayEnabled = ref(false)
   const audioElementReady = ref(false)
-  const pendingMusicLoad = ref<Music | null>(null) // 新增：待加载的音乐
+  const pendingMusicLoad = ref<Music | null>(null) // 待加载的音乐
+
+  // 封面URL缓存
+  const coverUrlCache = ref<Map<string, string>>(new Map())
 
   const pagination = ref({
     current: 1,
@@ -27,6 +30,24 @@ export const useMusicStore = defineStore('music', () => {
     total: 0,
   })
   const loading = ref(false)
+
+  // 获取封面URL的计算属性
+  const getCoverUrl = computed(() => (music: Music) => {
+    if (!music || !music.id) {
+      return ''
+    }
+
+    // 检查缓存中是否已有封面URL
+    const cachedUrl = coverUrlCache.value.get(music.id)
+    if (cachedUrl) {
+      return cachedUrl
+    }
+
+    // 生成封面URL
+    const coverUrl = `/api/music/cover?id=${music.id}&t=${Date.now()}`
+    coverUrlCache.value.set(music.id, coverUrl)
+    return coverUrl
+  })
 
   const fetchMusicList = async (params: MusicQueryParams) => {
     loading.value = true
@@ -408,6 +429,11 @@ export const useMusicStore = defineStore('music', () => {
     }
   }
 
+  // 清理封面缓存
+  const cleanupCoverCache = () => {
+    coverUrlCache.value.clear()
+  }
+
   // 启用自动播放
   const enableAutoPlay = () => {
     autoPlayEnabled.value = true
@@ -436,6 +462,9 @@ export const useMusicStore = defineStore('music', () => {
         if (currentMusic.value?.id === id) {
           stopPlayback()
         }
+
+        // 从封面缓存中移除
+        coverUrlCache.value.delete(id)
 
         // 更新分页总数
         pagination.value.total = Math.max(0, pagination.value.total - 1)
@@ -487,6 +516,7 @@ export const useMusicStore = defineStore('music', () => {
     autoPlayEnabled,
     audioElementReady,
     pendingMusicLoad,
+    getCoverUrl,
 
     // 方法
     fetchMusicList,
@@ -504,6 +534,7 @@ export const useMusicStore = defineStore('music', () => {
     playPrevious,
     formatTime,
     cleanupBlobUrl,
+    cleanupCoverCache,
     enableAutoPlay,
     disableAutoPlay,
     loadMusic,

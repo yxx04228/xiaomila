@@ -13,7 +13,7 @@ export interface Music {
   fileSize: string
   fileType: string
   playCount: number
-  coverUrl?: string // 新增封面URL字段
+  coverUrl: string // 封面URL字段
 }
 
 export interface MusicListResponse {
