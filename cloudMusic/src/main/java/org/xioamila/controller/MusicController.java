@@ -61,14 +61,14 @@ public class MusicController {
         return musicService.playMusic(id, request);
     }
 
-    @PutMapping("/update")
     @Operation(summary = "更新音乐")
+    @PutMapping("/update")
     public Result<Boolean> updateUser(@RequestBody Music music) {
         return Result.data(musicService.updateMusic(music));
     }
 
-    @DeleteMapping("/delete")
     @Operation(summary = "删除音乐")
+    @DeleteMapping("/delete")
     public Result<Boolean> deleteUser(@Parameter(description = "音乐ID") @RequestParam("id") String id) {
         return Result.data(musicService.deleteMusic(id));
     }
