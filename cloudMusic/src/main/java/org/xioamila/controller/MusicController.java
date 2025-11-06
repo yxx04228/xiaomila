@@ -72,4 +72,10 @@ public class MusicController {
     public Result<Boolean> deleteUser(@Parameter(description = "音乐ID") @RequestParam("id") String id) {
         return Result.data(musicService.deleteMusic(id));
     }
+
+    @Operation(summary = "获取音乐封面")
+    @GetMapping(value = "/cover")
+    public ResponseEntity<Resource> getCoverById(@Parameter(description = "音乐ID") @RequestParam("id") String id) {
+        return musicService.getCoverById(id);
+    }
 }

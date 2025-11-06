@@ -7,7 +7,9 @@ import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.audio.exceptions.CannotReadException;
 import org.jaudiotagger.audio.exceptions.InvalidAudioFrameException;
 import org.jaudiotagger.audio.exceptions.ReadOnlyFileException;
+import org.jaudiotagger.tag.FieldKey;
 import org.jaudiotagger.tag.TagException;
+import org.jaudiotagger.tag.datatype.Artwork;
 import org.springframework.core.io.AbstractResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -85,8 +87,10 @@ public class FileParseUtil {
         result.put("fileSize", formattedFileSize);
 
         // 解析文件时长
-        String duration = parseDuration(file);
-        result.put("duration", duration);
+        Map<String, Object> audioMetadata = parseAudioMetadata(file);
+        result.put("duration", audioMetadata.get("duration"));
+        result.put("album", audioMetadata.get("album"));
+        result.put("coverImage", audioMetadata.get("coverImage"));
 
         // 根据文件类型设置MIME类型
         String mimeType = getMimeType(fileExtension);
@@ -96,14 +100,17 @@ public class FileParseUtil {
     }
 
     /**
-     * 解析音频文件时长（支持FLAC、MP3、WAV等格式）
-     * @param file 上传的音频文件（MultipartFile）
-     * @return 格式化的时长字符串（分:秒，如"05:30"），解析失败返回"未知时长"
+     * 解析音频文件元数据（时长、专辑、封面等）
      */
-    private static String parseDuration(MultipartFile file) {
+    private static Map<String, Object> parseAudioMetadata(MultipartFile file) {
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("duration", "未知时长");
+        metadata.put("album", "未知专辑");
+        metadata.put("coverImage", null);
+
         // 若文件为空，直接返回未知
         if (file.isEmpty()) {
-            return "未知时长";
+            return metadata;
         }
 
         // 获取原始文件的扩展名（关键：用于临时文件命名）
@@ -129,17 +136,33 @@ public class FileParseUtil {
             // 格式化时长为 分:秒（补零处理，如1分5秒 -> 01:05）
             int minutes = durationSeconds / 60;
             int seconds = durationSeconds % 60;
-            return String.format("%02d:%02d", minutes, seconds);
+            metadata.put("duration", String.format("%02d:%02d", minutes, seconds));
+
+            // 获取标签信息（专辑、封面等）
+            if (audioFile.getTag() != null) {
+                // 获取专辑名称
+                String album = audioFile.getTag().getFirst(FieldKey.ALBUM);
+                if (StringUtils.hasText(album)) {
+                    metadata.put("album", album.trim());
+                }
+
+                // 获取封面图片
+                byte[] coverImageData = extractCoverImage(audioFile);
+                if (coverImageData != null) {
+                    metadata.put("coverImage", coverImageData);
+                }
+
+                // 如果文件名解析的歌手或标题为空，尝试从元数据获取
+                // 这里可以根据需要补充逻辑
+            }
 
         } catch (CannotReadException e) {
             // 打印详细错误信息（包含不支持的原因）
             System.err.println("无法读取音频文件：" + e.getMessage());
             e.printStackTrace(); // 输出完整堆栈，查看具体不支持的原因
-            return "不支持的音频格式";
         } catch (IOException | TagException | ReadOnlyFileException | InvalidAudioFrameException e) {
             // 其他异常（如IO错误、解析失败）
             e.printStackTrace();
-            return "未知时长";
         } finally {
             // 清理临时文件
             if (tempFile != null && tempFile.exists()) {
@@ -147,6 +170,50 @@ public class FileParseUtil {
                 tempFile.deleteOnExit();
             }
         }
+        return metadata;
+    }
+
+    /**
+     * 提取封面图片
+     */
+    private static byte[] extractCoverImage(AudioFile audioFile) {
+        try {
+            if (audioFile.getTag() == null) {
+                return null;
+            }
+
+            // 尝试获取封面艺术
+            Artwork artwork = audioFile.getTag().getFirstArtwork();
+            if (artwork != null) {
+                byte[] imageData = artwork.getBinaryData();
+                if (imageData != null && imageData.length > 0) {
+                    // 验证确实是图片数据
+                    String mimeType = tika.detect(imageData);
+                    if (mimeType != null && mimeType.startsWith("image/")) {
+                        return imageData;
+                    }
+                }
+            }
+
+            // 对于某些格式，可能需要遍历所有 artwork
+            List<Artwork> artworkList = audioFile.getTag().getArtworkList();
+            if (artworkList != null && !artworkList.isEmpty()) {
+                for (Artwork art : artworkList) {
+                    byte[] imageData = art.getBinaryData();
+                    if (imageData != null && imageData.length > 0) {
+                        String mimeType = tika.detect(imageData);
+                        if (mimeType != null && mimeType.startsWith("image/")) {
+                            return imageData;
+                        }
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            log.warn("提取封面图片失败", e);
+        }
+
+        return null;
     }
 
     /**

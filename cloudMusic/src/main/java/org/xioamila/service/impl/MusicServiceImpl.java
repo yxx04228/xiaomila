@@ -9,7 +9,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +24,7 @@ import org.xioamila.common.utils.FileParseUtil;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,6 +39,9 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
 
     @Value("${music.file.path}")
     private String musicFilePath;
+
+    @Value("${cover.file.path}")
+    private String coverFilePath;
 
     private final MusicMapper musicMapper;
 
@@ -64,6 +71,9 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
             String duration = (String) fileInfo.get("duration");
             String title = (String) fileInfo.get("title");
             String singer = (String) fileInfo.get("singer");
+            String album = (String) fileInfo.get("album"); // 专辑名称
+            byte[] coverImage = (byte[]) fileInfo.get("coverImage"); // 封面图片数据
+
             String fileName = singer + " - " + title;
 
             // 验证是否已存在该歌曲（title + singer）
@@ -76,13 +86,12 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
                 throw new ServiceException("歌曲已存在：" + singer + " - " + title);
             }
 
+            // 保存音乐文件
             // 获取项目根目录的绝对路径
             String projectRoot = System.getProperty("user.dir");
             String absoluteMusicPath = new File(projectRoot, musicFilePath).getAbsolutePath();
-
             // 生成唯一文件名
             String filePath = UUID.randomUUID().toString() + "." + fileExtension;
-
             // 保存文件
             File saveFile = new File(absoluteMusicPath + File.separator + filePath);
             if (!saveFile.getParentFile().exists()) {
@@ -90,16 +99,42 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
             }
             file.transferTo(saveFile);
 
+            // 保存封面图片
+            String coverUrl = null;
+            if (coverImage != null && coverImage.length > 0) {
+                // 封面保存目录
+                String absoluteCoverPath = new File(projectRoot, coverFilePath).getAbsolutePath();
+                // 创建目录
+                File coverDirectory = new File(absoluteCoverPath);
+                if (!coverDirectory.exists()) {
+                    coverDirectory.mkdirs();
+                }
+                // 生成唯一文件名
+                String coverFileName = UUID.randomUUID().toString() + ".jpg";
+                // 生成文件路径
+                String absoluteCoverFilePath = absoluteCoverPath + File.separator + coverFileName;
+
+                // 保存封面文件
+                try (FileOutputStream fos = new FileOutputStream(absoluteCoverFilePath)){
+                    fos.write(coverImage);
+                }
+
+                coverUrl = coverFileName;
+            }
+
             // 保存音乐信息到数据库
             Music music = new Music();
             music.setTitle(title);
             music.setSinger(singer);
+            music.setAlbum(album); // 设置专辑名称
             music.setDuration(duration);
             music.setFileType(fileExtension);
             music.setFilePath(filePath);
             music.setFileName(fileName);
             music.setFileSize(formattedFileSize);
+            music.setCoverUrl(coverUrl); // 设置封面路径
             music.setPlayCount(0);
+            music.setDownloadCount(0);
 
             boolean saveResult = this.save(music);
 
@@ -287,6 +322,49 @@ public class MusicServiceImpl extends ServiceImpl<MusicMapper, Music> implements
         } catch (IOException e) {
             log.error("删除音乐文件失败: {}", filePath, e);
             throw new ServiceException("删除音乐文件失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public ResponseEntity<Resource> getCoverById(String id) {
+        try {
+            // 查询音乐信息
+            Music music = this.getById(id);
+            if (music == null) {
+                log.warn("音乐文件不存在, id: {}", id);
+                return ResponseEntity.notFound().build();
+            }
+
+            // 验证文件路径
+            String filePath = music.getCoverUrl();
+            if (filePath == null || filePath.trim().isEmpty()) {
+                log.warn("音乐封面文件路径为空, id: {}", id);
+                return ResponseEntity.notFound().build();
+            }
+
+            // 获取封面文件的绝对路径
+            String projectRoot = System.getProperty("user.dir");
+            String absoluteCoverPath = new File(projectRoot, coverFilePath).getAbsolutePath();
+            filePath = absoluteCoverPath + File.separator + filePath;
+
+            // 创建文件对象并验证
+            File coverFile = new File(filePath);
+
+            if (!coverFile.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            FileSystemResource resource = new FileSystemResource(coverFile);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.IMAGE_JPEG); // 根据实际格式调整
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(resource);
+
+        } catch (Exception e) {
+            log.error("获取音乐封面文件失败, id: {}", id, e);
+            return ResponseEntity.internalServerError().build();
         }
     }
 }

@@ -40,4 +40,9 @@ public interface MusicService extends IService<Music> {
      * 删除音乐
      */
     boolean deleteMusic(String id);
+
+    /**
+     * 获取音乐封面
+     */
+    ResponseEntity<Resource> getCoverById(String id);
 }

@@ -67,4 +67,16 @@ public class Music extends BaseEntity {
     @Schema(description = "播放次数")
     private Integer playCount;
 
+    /**
+     * 下载次数
+     */
+    @Schema(description = "下载次数")
+    private Integer downloadCount;
+
+    /**
+     * 封面地址
+     */
+    @Schema(description = "封面地址")
+    private String coverUrl;
+
 }

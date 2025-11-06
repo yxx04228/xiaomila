@@ -33,6 +33,10 @@ music:
   file:
     path: /music_files/
 
+cover:
+  file:
+    path: /cover_files/
+
 jwt:
   secret: KXp4s8F3j9MwqBvT6nRcY7Vh2zLk5gPfA
   expiration: 86400000    # 24小时，单位毫秒
