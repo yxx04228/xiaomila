@@ -357,6 +357,7 @@ const handlePlay = async (music: Music) => {
 
 const handleDownload = async (music: Music) => {
   await downloadMusicFile(music)
+  handleRefresh() // 刷新列表更新显示
 }
 
 const handlePageChange = (page: number) => {

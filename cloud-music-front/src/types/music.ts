@@ -55,7 +55,8 @@ export interface PlayerState {
 // 更新音乐信息参数类型
 export interface UpdateMusicParams {
   id: string
-  title: string
-  singer: string
+  title?: string
+  singer?: string
   album?: string
+  playCount?: number
 }

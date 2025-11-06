@@ -7,6 +7,8 @@ import { ElMessage, ElLoading } from 'element-plus'
  * @param onProgress 进度回调（可选）
  */
 export const downloadMusicFile = async (music: any, onProgress?: (progress: number) => void) => {
+  let downloadSuccess = false
+
   try {
     // 显示加载提示
     const loadingInstance = ElLoading.service({
@@ -40,9 +42,28 @@ export const downloadMusicFile = async (music: any, onProgress?: (progress: numb
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
 
+    // 标记下载成功
+    downloadSuccess = true
+
     loadingInstance.close()
 
     ElMessage.success(`"${music.title}" 下载成功`)
+
+    // 下载成功后，增加下载次数
+    if (downloadSuccess) {
+      try {
+        const newPlayCount = (music.playCount || 0) + 1
+        await musicApi.updateMusic({
+          id: music.id,
+          playCount: newPlayCount,
+        })
+        console.log(`"${music.title}" 下载次数已更新: ${newPlayCount}`)
+      } catch (updateError) {
+        console.warn('更新下载次数失败:', updateError)
+        // 不阻塞主流程，只是记录警告
+      }
+    }
+
     return true
   } catch (error) {
     console.error('下载失败:', error)
