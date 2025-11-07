@@ -813,7 +813,7 @@ watch(currentTime, (newTime) => {
 :deep(.progress-slider .el-slider__runway::before) {
   content: '';
   position: absolute;
-  top: -10px;
+  top: -9px;
   left: 0;
   right: 0;
   bottom: -10px;
