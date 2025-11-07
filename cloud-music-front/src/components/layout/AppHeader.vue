@@ -95,9 +95,8 @@ const handleLogout = async () => {
 
 /* 内容容器 - 保持简洁布局 */
 .header-content {
-  max-width: 1200px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 38px;
   height: 60px;
   display: flex;
   align-items: center;

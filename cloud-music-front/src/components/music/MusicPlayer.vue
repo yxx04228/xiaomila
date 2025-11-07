@@ -585,6 +585,7 @@ watch(currentTime, (newTime) => {
   align-items: center;
   justify-content: center;
   text-align: center;
+  padding: 0 38px !important;
 }
 
 .player-placeholder {
@@ -643,17 +644,19 @@ watch(currentTime, (newTime) => {
   align-items: center;
   height: 100%;
   min-height: 70px;
-  width: 80%;
+  width: 100%;
 }
 
 .player-content {
   display: flex;
   align-items: center;
-  gap: 20px; /* 增加间距，与内容区域协调 */
+  gap: 20px;
   height: 100%;
   min-height: 70px;
-  width: 80%;
+  width: 100%;
   margin: 17px auto 3px;
+  padding: 0 20px;
+  box-sizing: border-box;
 }
 
 /* 歌曲信息样式 */
@@ -662,9 +665,7 @@ watch(currentTime, (newTime) => {
   align-items: center;
   flex: 0 0 auto;
   min-width: 200px;
-  /* 移除 max-width: 250px; */
   justify-content: flex-start;
-  margin-right: auto;
 }
 
 .album-cover {
@@ -679,7 +680,6 @@ watch(currentTime, (newTime) => {
   overflow: hidden;
   text-align: left;
   margin-left: 12px;
-  /* 添加最小宽度，确保短文本时也有合适宽度 */
   min-width: 120px;
 }
 
@@ -720,15 +720,15 @@ watch(currentTime, (newTime) => {
   align-items: center;
   gap: 8px;
   flex: 1;
-  max-width: 800px;
-  margin: 0 auto;
+  margin: 0 40px;
 }
 
 .control-buttons {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px; /* 增加按钮间距 */
+  gap: 20px;
+  width: 100%;
 }
 
 .loop-button {
@@ -747,13 +747,13 @@ watch(currentTime, (newTime) => {
 }
 /* 不同循环模式的状态点颜色 */
 .loop-mode-none::after {
-  background-color: #909399; /* 灰色 - 列表循环 */
+  background-color: #909399;
 }
 .loop-mode-one::after {
-  background-color: #10d361; /* 绿色 - 单曲循环 */
+  background-color: #10d361;
 }
 .loop-mode-all::after {
-  background-color: #409eff; /* 蓝色 - 顺序播放 */
+  background-color: #409eff;
 }
 
 .control-buttons .el-button--circle.el-button--primary {
@@ -776,7 +776,7 @@ watch(currentTime, (newTime) => {
 .progress-container {
   display: flex;
   align-items: center;
-  gap: 12px; /* 增加时间与进度条的间距 */
+  gap: 12px;
   width: 100%;
   padding: 0 10px;
 }
@@ -785,16 +785,17 @@ watch(currentTime, (newTime) => {
 .time-total {
   font-size: 12px;
   color: #718096;
-  width: 45px; /* 稍微增加宽度 */
+  width: 45px;
   text-align: center;
   flex-shrink: 0;
 }
 
-/* 进度条滑块样式 - 轨道点击跳转版本 */
+/* 进度条滑块样式 */
 .progress-slider {
   flex: 1;
   cursor: pointer;
   position: relative;
+  min-width: 300px;
 }
 :deep(.progress-slider) {
   --el-slider-rail-height: 3px;
@@ -802,34 +803,32 @@ watch(currentTime, (newTime) => {
   --el-slider-thumb-size: 10px;
 }
 :deep(.progress-slider .el-slider__runway) {
-  height: 3px; /* 保持原有轨道高度 */
-  margin: 15px 0; /* 增加上下边距来扩大点击区域 */
+  height: 3px;
+  margin: 15px 0;
   background-color: #e2e8f0;
   border-radius: 2px;
   cursor: pointer;
   position: relative;
 }
-/* 创建透明的扩大点击区域 */
 :deep(.progress-slider .el-slider__runway::before) {
   content: '';
   position: absolute;
-  top: -10px; /* 向上扩展点击区域 */
+  top: -10px;
   left: 0;
   right: 0;
-  bottom: -10px; /* 向下扩展点击区域 */
+  bottom: -10px;
   z-index: 1;
   cursor: pointer;
 }
 :deep(.progress-slider .el-slider__bar) {
-  height: 3px; /* 保持原有进度条高度 */
+  height: 3px;
   background-color: #4299e1;
   border-radius: 2px;
 }
-/* 扩大滑块点击区域 */
 :deep(.progress-slider .el-slider__button-wrapper) {
-  width: 24px; /* 扩大点击区域 */
+  width: 24px;
   height: 24px;
-  top: -11px; /* 调整垂直位置 */
+  top: -11px;
   transform: translateX(-50%);
   cursor: pointer;
   z-index: 10;
@@ -845,7 +844,6 @@ watch(currentTime, (newTime) => {
   box-shadow: 0 1px 2px rgba(66, 153, 225, 0.4);
   transition: all 0.2s ease;
 }
-/* 悬停状态 */
 :deep(.progress-slider .el-slider__button-wrapper:hover .el-slider__button) {
   transform: scale(1.3);
   background-color: #3182ce;
@@ -919,7 +917,6 @@ watch(currentTime, (newTime) => {
   gap: 12px;
 }
 
-/* 使用新的 :deep() 语法 */
 :deep(.volume-slider) {
   width: 3px !important;
 }
@@ -992,29 +989,27 @@ watch(currentTime, (newTime) => {
   }
 }
 
-.volume-percent {
-  font-size: 12px;
-  color: #4a5568;
-  font-weight: 500;
-}
-
 /* 响应式调整 */
 @media (max-width: 1024px) {
   .player-content {
     gap: 16px;
+    padding: 0 16px;
   }
 
   .song-info {
     min-width: 180px;
-    max-width: 220px;
   }
 
   .playback-controls {
-    max-width: 450px;
+    margin: 0 30px;
   }
 
   .control-buttons {
     gap: 16px;
+  }
+
+  .progress-slider {
+    min-width: 250px;
   }
 }
 
@@ -1023,25 +1018,28 @@ watch(currentTime, (newTime) => {
     flex-wrap: wrap;
     justify-content: space-between;
     gap: 12px;
+    padding: 0 12px;
   }
 
   .song-info {
     order: 1;
     flex: 1;
     min-width: auto;
-    max-width: none;
   }
 
   .playback-controls {
     order: 3;
     flex: 1 0 100%;
-    max-width: none;
-    margin-top: 8px;
+    margin: 8px 0 0 0;
   }
 
   .extra-controls {
     order: 2;
     flex: 0 0 auto;
+  }
+
+  .progress-slider {
+    min-width: auto;
   }
 
   .song-title {
@@ -1064,6 +1062,7 @@ watch(currentTime, (newTime) => {
 @media (max-width: 480px) {
   .player-content {
     gap: 8px;
+    padding: 0 8px;
   }
 
   .song-info {
@@ -1074,6 +1073,10 @@ watch(currentTime, (newTime) => {
 
   .album-cover {
     display: none;
+  }
+
+  .playback-controls {
+    margin: 8px 0 0 0;
   }
 
   .progress-container {
