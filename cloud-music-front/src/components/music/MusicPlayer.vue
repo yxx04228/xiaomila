@@ -475,9 +475,20 @@ const handleVolumeInput = (newValue: number) => {
   setVolume(newValue)
 }
 
+// 全局点击事件处理函数
+const handleClickOutside = (e: MouseEvent) => {
+  const volumeWrapper = document.querySelector('.volume-control-wrapper')
+  if (volumeWrapper && !volumeWrapper.contains(e.target as Node)) {
+    volumePopoverVisible.value = false
+  }
+}
+
 // 初始化音频元素
 onMounted(async () => {
   console.log('MusicPlayer 组件挂载')
+
+  // 注册全局点击事件监听器
+  document.addEventListener('click', handleClickOutside)
 
   // 等待下一个tick确保DOM渲染完成
   await nextTick()
@@ -503,20 +514,19 @@ onMounted(async () => {
     console.error('❌ 音频元素引用为空')
     ElMessage.error('播放器初始化失败')
   }
+})
 
-  // 全局点击事件：点击外部关闭音量弹出框
-  const handleClickOutside = (e: MouseEvent) => {
-    const volumeWrapper = document.querySelector('.volume-control-wrapper')
-    if (volumeWrapper && !volumeWrapper.contains(e.target as Node)) {
-      volumePopoverVisible.value = false
-    }
+// 组件卸载时清理
+onUnmounted(() => {
+  // 移除全局事件监听器
+  document.removeEventListener('click', handleClickOutside)
+
+  if (audioRef.value) {
+    audioRef.value.pause()
   }
-
-  document.addEventListener('click', handleClickOutside)
-
-  onUnmounted(() => {
-    document.removeEventListener('click', handleClickOutside)
-  })
+  cleanupBlobUrl()
+  volumePopoverVisible.value = false // 卸载时关闭弹出框
+  console.log('MusicPlayer 组件卸载')
 })
 
 // 监听播放状态变化
@@ -561,16 +571,6 @@ watch(currentTime, (newTime) => {
   if (!isSeeking.value && !isHandlingEnded.value) {
     sliderTime.value = newTime
   }
-})
-
-// 组件卸载时清理
-onUnmounted(() => {
-  if (audioRef.value) {
-    audioRef.value.pause()
-  }
-  cleanupBlobUrl()
-  volumePopoverVisible.value = false // 卸载时关闭弹出框
-  console.log('MusicPlayer 组件卸载')
 })
 </script>
 
@@ -660,21 +660,27 @@ onUnmounted(() => {
 .song-info {
   display: flex;
   align-items: center;
-  gap: 12px;
   flex: 0 0 auto;
   min-width: 200px;
-  max-width: 250px; /* 限制最大宽度 */
+  /* 移除 max-width: 250px; */
+  justify-content: flex-start;
+  margin-right: auto;
 }
 
 .album-cover {
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(4, 4, 4, 0);
+  flex-shrink: 0;
 }
 
 .song-details {
   flex: 1;
   overflow: hidden;
+  text-align: left;
+  margin-left: 12px;
+  /* 添加最小宽度，确保短文本时也有合适宽度 */
+  min-width: 120px;
 }
 
 .song-title {
@@ -685,6 +691,7 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   margin-bottom: 4px;
+  text-align: left;
 }
 
 .song-artist {
@@ -693,6 +700,7 @@ onUnmounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: left;
 }
 
 .loading-status {
@@ -702,6 +710,7 @@ onUnmounted(() => {
   font-size: 12px;
   color: #4299e1;
   margin-top: 4px;
+  justify-content: flex-start;
 }
 
 /* 播放控制样式 */
