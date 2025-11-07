@@ -622,7 +622,9 @@ const uploadSingleFile = async (file: UploadFile): Promise<void> => {
     // 实际的上传请求
     fetch(uploadAction, {
       method: 'POST',
-      headers: uploadHeaders,
+      headers: {
+        ...uploadHeaders,
+      },
       body: formData,
     })
       .then(async (response) => {

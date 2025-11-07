@@ -1,43 +1,141 @@
 server:
-  port: 8081
+    port: 8081
+    connection-timeout: 3600000
+    tomcat:
+        max-connections: 1000
+        threads:
+            max: 300
+            min-spare: 100
+        keep-alive-timeout: 600000
+        max-keep-alive-requests: 1000
+        max-swallow-size: 104857600
+        max-http-form-post-size: 104857600
+        background-processor-delay: 120
+        accept-count: 500
+    compression:
+        enabled: true
+        mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json,audio/mpeg,audio/flac,audio/wav,audio/aac,audio/mp4,audio/ogg,audio/x-m4a
+        min-response-size: 1024
 
 spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/music_website?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: root
-    password: root
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    datasource:
+        url: jdbc:mysql://localhost:3306/music_website?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+        username: root
+        password: root
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        hikari:
+            maximum-pool-size: 30
+            minimum-idle: 15
+            connection-timeout: 60000
+            idle-timeout: 1200000
+            max-lifetime: 1800000
+            connection-test-query: SELECT 1
+            leak-detection-threshold: 60000
+            pool-name: MusicHikariPool
 
-  servlet:
-    multipart:
-      max-file-size: 100MB
-      max-request-size: 100MB
+    servlet:
+        multipart:
+            max-file-size: 200MB
+            max-request-size: 200MB
+            resolve-lazily: true
+            enabled: true
+            file-size-threshold: 2KB
+            location: ${java.io.tmpdir}
 
-  web:
-    resources:
-      static-locations:
-        - "classpath:/static/"
-        - "file:${music.file.path}"
+    web:
+        resources:
+            static-locations:
+                - "classpath:/static/"
+                - "file:${music.file.path}"
+                - "file:${cover.file.path}"
+            cache:
+                period: 7200
+                cachecontrol:
+                    max-age: 7200
+                    must-revalidate: false
+            chain:
+                strategy:
+                    content:
+                        enabled: true
+                        paths: /**
+
+    http:
+        client:
+            timeout:
+                connect: 60000
+                read: 1800000
+                write: 1800000
+
+    task:
+        execution:
+            pool:
+                core-size: 20
+                max-size: 100
+                queue-capacity: 1000
+                keep-alive: 60s
+            thread-name-prefix: "music-async-"
+
+    jackson:
+        date-format: yyyy-MM-dd HH:mm:ss
+        time-zone: Asia/Shanghai
+        default-property-inclusion: NON_NULL
+
+    mvc:
+        async:
+            request-timeout: 3600000
+        static-path-pattern: /**
+
+logging:
+    level:
+        org.apache.catalina.connector: ERROR
+        org.apache.coyote: ERROR
+        org.apache.tomcat: ERROR
+        org.apache.catalina: ERROR
+        org.springframework.web: WARN
+        org.xioamila: INFO
+        org.apache.ibatis: INFO
+        com.zaxxer.hikari: INFO
+    pattern:
+        console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file:
+        name: logs/music-app.log
+        max-size: 100MB
+        max-history: 30
 
 mybatis-plus:
-  mapper-locations: classpath*:/mapper/**/*.xml
-  type-aliases-package: org.xioamila.entity
-  configuration:
-    map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-  global-config:
-    db-config:
-      db-type: mysql
+    mapper-locations: classpath*:/mapper/**/*.xml
+    type-aliases-package: org.xioamila.entity
+    configuration:
+        map-underscore-to-camel-case: true
+        log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    global-config:
+        db-config:
+            db-type: mysql
+            id-type: ASSIGN_ID
 
 music:
-  file:
-    path: /music_files/
+    file:
+        path: /music_files/
 
 cover:
-  file:
-    path: /cover_files/
+    file:
+        path: /cover_files/
 
 jwt:
-  secret: KXp4s8F3j9MwqBvT6nRcY7Vh2zLk5gPfA
-  expiration: 86400000    # 24小时，单位毫秒
-  header: "X-Access-Token"
+    secret: KXp4s8F3j9MwqBvT6nRcY7Vh2zLk5gPfA
+    expiration: 86400000
+    header: "X-Access-Token"
+
+app:
+    file:
+        download:
+            buffer-size: 16384
+            timeout: 3600000
+            max-retries: 5
+        upload:
+            max-concurrent: 10
+            chunk-size: 2097152
+    network:
+        proxy: true
+        keep-alive-interval: 30000
+        chunked-transfer: true

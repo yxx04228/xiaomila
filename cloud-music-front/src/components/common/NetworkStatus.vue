@@ -18,14 +18,14 @@ const errorMessage = ref('')
 
 const checkNetwork = async () => {
   try {
-    const response = await fetch('http://192.168.0.125:8081/music/getPageList?nCurrent=1&nSize=1')
+    const response = await fetch('/api/music/getPageList?nCurrent=1&nSize=1')
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     showError.value = false
   } catch (error) {
     showError.value = true
-    errorMessage.value = `无法连接到后端服务器 (http://192.168.0.125:8081)。请检查：
+    errorMessage.value = `无法连接到后端服务器。请检查：
     1. 后端服务是否启动
     2. 网络连接是否正常
     3. 防火墙设置`

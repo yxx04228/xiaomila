@@ -19,5 +19,6 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
+    allowedHosts: ['xiaomila.free.idcfengye.com', '61101fhxd390.vicp.fun'],
   },
 })
