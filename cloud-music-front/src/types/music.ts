@@ -18,6 +18,7 @@ export interface Music {
 }
 
 export interface MusicListResponse {
+  code: number
   success: boolean
   message: string
   data: {
