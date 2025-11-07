@@ -52,12 +52,12 @@ export const downloadMusicFile = async (music: any, onProgress?: (progress: numb
     // 下载成功后，增加下载次数
     if (downloadSuccess) {
       try {
-        const newPlayCount = (music.playCount || 0) + 1
+        const newDownloadCount = (music.downloadCount || 0) + 1
         await musicApi.updateMusic({
           id: music.id,
-          playCount: newPlayCount,
+          downloadCount: newDownloadCount,
         })
-        console.log(`"${music.title}" 下载次数已更新: ${newPlayCount}`)
+        console.log(`"${music.title}" 下载次数已更新: ${newDownloadCount}`)
       } catch (updateError) {
         console.warn('更新下载次数失败:', updateError)
         // 不阻塞主流程，只是记录警告
@@ -75,15 +75,24 @@ export const downloadMusicFile = async (music: any, onProgress?: (progress: numb
 /**
  * 根据文件类型获取 MIME 类型
  */
-const getMimeType = (fileType: string): string => {
-  const mimeTypes: { [key: string]: string } = {
+function getMimeType(filename: string): string {
+  if (!filename) {
+    return 'application/octet-stream'
+  }
+
+  const ext = filename.split('.').pop()?.toLowerCase() || ''
+
+  const mimeMap: Record<string, string> = {
     mp3: 'audio/mpeg',
     wav: 'audio/wav',
     flac: 'audio/flac',
-    ogg: 'audio/ogg',
+    aac: 'audio/aac',
     m4a: 'audio/mp4',
+    ogg: 'audio/ogg',
+    wma: 'audio/x-ms-wma',
   }
-  return mimeTypes[fileType.toLowerCase()] || 'application/octet-stream'
+
+  return mimeMap[ext] || 'application/octet-stream'
 }
 
 /**

@@ -28,7 +28,7 @@
 
         <el-table-column prop="downloadCount" label="下载次数" width="100">
           <template #default="{ row }">
-            {{ row.playCount || 0 }}
+            {{ row.downloadCount || 0 }}
           </template>
         </el-table-column>
 

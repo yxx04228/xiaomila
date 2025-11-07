@@ -195,7 +195,6 @@ const {
   audioLoading,
   audioElementReady,
   musicList,
-  getCoverUrl,
 } = storeToRefs(musicStore)
 
 const {
@@ -209,6 +208,8 @@ const {
   playPrevious,
   formatTime,
   cleanupBlobUrl,
+  getCoverUrl,
+  handleRefresh,
 } = musicStore
 
 const audioRef = ref<HTMLAudioElement>()
@@ -436,8 +437,11 @@ const handleSliderChange = async (value: number) => {
 
 // 下载当前歌曲
 const handleDownload = async () => {
-  if (currentMusic.value) {
-    await downloadMusicFile(currentMusic.value)
+  await downloadMusicFile(currentMusic.value)
+  await handleRefresh() // 刷新当前列表
+  const updatedMusic = musicStore.musicList.find((music) => music.id === currentMusic.value?.id)
+  if (updatedMusic && currentMusic.value) {
+    currentMusic.value.downloadCount = updatedMusic.downloadCount
   }
 }
 

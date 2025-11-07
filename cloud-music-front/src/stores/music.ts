@@ -21,6 +21,14 @@ export const useMusicStore = defineStore('music', () => {
   const audioElementReady = ref(false)
   const pendingMusicLoad = ref<Music | null>(null) // 待加载的音乐
 
+  // 明确的保存搜索条件
+  const currentSearchParams = ref<MusicQueryParams>({
+    title: '',
+    singer: '',
+    nCurrent: 1,
+    nSize: 10,
+  })
+
   // 封面URL缓存
   const coverUrlCache = ref<Map<string, string>>(new Map())
 
@@ -52,6 +60,9 @@ export const useMusicStore = defineStore('music', () => {
   const fetchMusicList = async (params: MusicQueryParams) => {
     loading.value = true
     try {
+      // 保存当前的搜索条件
+      currentSearchParams.value = { ...params }
+
       const response = await musicApi.getMusicList(params)
 
       if (response.success) {
@@ -251,11 +262,12 @@ export const useMusicStore = defineStore('music', () => {
 
     // 如果已经是当前音乐且已加载，直接播放
     if (currentMusic.value?.id === music.id && currentBlobUrl.value) {
-      if (isPlaying.value) {
-        pauseMusic()
-      } else {
-        await resumeMusic()
-      }
+      // if (isPlaying.value) {
+      //   pauseMusic()
+      // } else {
+      //   await resumeMusic()
+      // }
+      await resumeMusic()
     } else {
       // 新歌曲，加载并播放
       await loadMusic(music, true)
@@ -379,39 +391,102 @@ export const useMusicStore = defineStore('music', () => {
   }
 
   // 播放下一首
-  const playNext = () => {
+  const playNext = async () => {
     if (!currentMusic.value || musicList.value.length === 0) return
 
-    // 如果只有一首歌，重新从开头播放当前歌曲
-    if (musicList.value.length === 1) {
-      if (audioElement.value) {
-        audioElement.value.currentTime = 0
-        console.log('重新播放当前歌曲')
-      }
-      return
-    }
-
     const currentIndex = musicList.value.findIndex((m) => m.id === currentMusic.value?.id)
-    const nextIndex = (currentIndex + 1) % musicList.value.length
-    playMusic(musicList.value[nextIndex])
+
+    // 如果当前歌曲是列表中的最后一首
+    if (currentIndex === musicList.value.length - 1) {
+      // 检查是否还有下一页
+      if (pagination.value.current * pagination.value.pageSize < pagination.value.total) {
+        // 有下一页，加载下一页并播放第一首
+        const nextPage = pagination.value.current + 1
+        await fetchMusicList({
+          title: currentSearchParams.value.title,
+          singer: currentSearchParams.value.singer,
+          nCurrent: nextPage,
+          nSize: pagination.value.pageSize,
+        })
+
+        // 等待列表更新后播放第一首
+        if (musicList.value.length > 0) {
+          await playMusic(musicList.value[0])
+        }
+      } else {
+        // 列表循环：回到第一页的第一首
+        await fetchMusicList({
+          title: currentSearchParams.value.title,
+          singer: currentSearchParams.value.singer,
+          nCurrent: 1,
+          nSize: pagination.value.pageSize,
+        })
+
+        if (musicList.value.length > 0) {
+          await playMusic(musicList.value[0])
+        }
+      }
+    } else {
+      // 播放当前页的下一首
+      const nextIndex = currentIndex + 1
+      await playMusic(musicList.value[nextIndex])
+    }
   }
 
   // 播放上一首
-  const playPrevious = () => {
+  const playPrevious = async () => {
     if (!currentMusic.value || musicList.value.length === 0) return
 
-    // 如果只有一首歌，重新从开头播放当前歌曲
-    if (musicList.value.length === 1) {
-      if (audioElement.value) {
-        audioElement.value.currentTime = 0
-        console.log('重新播放当前歌曲')
-      }
-      return
-    }
-
     const currentIndex = musicList.value.findIndex((m) => m.id === currentMusic.value?.id)
-    const prevIndex = currentIndex > 0 ? currentIndex - 1 : musicList.value.length - 1
-    playMusic(musicList.value[prevIndex])
+
+    // 如果当前歌曲是列表中的第一首
+    if (currentIndex === 0) {
+      // 检查是否还有上一页
+      if (pagination.value.current > 1) {
+        // 有上一页，加载上一页并播放最后一首
+        const prevPage = pagination.value.current - 1
+        await fetchMusicList({
+          title: currentSearchParams.value.title,
+          singer: currentSearchParams.value.singer,
+          nCurrent: prevPage,
+          nSize: pagination.value.pageSize,
+        })
+
+        // 等待列表更新后播放最后一首
+        if (musicList.value.length > 0) {
+          const lastIndex = musicList.value.length - 1
+          await playMusic(musicList.value[lastIndex])
+        }
+      } else {
+        // 列表循环：跳到最后一页的最后一首
+        const lastPage = Math.ceil(pagination.value.total / pagination.value.pageSize)
+        await fetchMusicList({
+          title: currentSearchParams.value.title,
+          singer: currentSearchParams.value.singer,
+          nCurrent: lastPage,
+          nSize: pagination.value.pageSize,
+        })
+
+        if (musicList.value.length > 0) {
+          const lastIndex = musicList.value.length - 1
+          await playMusic(musicList.value[lastIndex])
+        }
+      }
+    } else {
+      // 播放当前页的上一首
+      const prevIndex = currentIndex - 1
+      await playMusic(musicList.value[prevIndex])
+    }
+  }
+
+  // 刷新当前列表
+  const handleRefresh = async () => {
+    await fetchMusicList({
+      title: currentSearchParams.value.title,
+      singer: currentSearchParams.value.singer,
+      nCurrent: pagination.value.current,
+      nSize: pagination.value.pageSize,
+    })
   }
 
   // 格式化时间（秒 -> 分:秒）
@@ -516,7 +591,6 @@ export const useMusicStore = defineStore('music', () => {
     autoPlayEnabled,
     audioElementReady,
     pendingMusicLoad,
-    getCoverUrl,
 
     // 方法
     fetchMusicList,
@@ -540,5 +614,7 @@ export const useMusicStore = defineStore('music', () => {
     loadMusic,
     deleteMusic,
     stopPlayback,
+    getCoverUrl,
+    handleRefresh,
   }
 })

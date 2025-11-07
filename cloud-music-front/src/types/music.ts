@@ -14,6 +14,7 @@ export interface Music {
   fileType: string
   playCount: number
   coverUrl: string // 封面URL字段
+  downloadCount: number
 }
 
 export interface MusicListResponse {
@@ -58,5 +59,5 @@ export interface UpdateMusicParams {
   title?: string
   singer?: string
   album?: string
-  playCount?: number
+  downloadCount?: number
 }
