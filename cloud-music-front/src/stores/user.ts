@@ -1,7 +1,10 @@
+// stores/user.js
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { musicApi } from '@/api/user'
 import type { UserLoginParams, UserLoginResponse } from '@/types/user'
+import { ElMessage } from 'element-plus'
+import router from '@/router'
 
 export const useUserStore = defineStore('user', () => {
   // 状态
@@ -44,13 +47,14 @@ export const useUserStore = defineStore('user', () => {
         userInfo.value = {
           id: response.data.id,
           username: response.data.username,
-          nickname: response.data.nickname
+          nickname: response.data.nickname,
         }
 
         // 保存到 localStorage
         localStorage.setItem('music_token', response.data.token)
         localStorage.setItem('music_user', JSON.stringify(userInfo.value))
 
+        ElMessage.success('登录成功')
         return response
       } else {
         throw new Error(response.message || '登录失败')
@@ -58,13 +62,19 @@ export const useUserStore = defineStore('user', () => {
     } catch (error: any) {
       // 清除可能的部分状态
       clearUserInfo()
+      ElMessage.error(error.message || '登录失败')
       throw error
     }
   }
 
   // 退出登录
-  const userLogout = () => {
+  const userLogout = (showMessage = true) => {
     clearUserInfo()
+    if (showMessage) {
+      ElMessage.success('已退出登录')
+    }
+    // 跳转到登录页
+    router.push('/login')
     // 可以调用后端退出接口（如果需要）
     // await musicApi.userLogout()
   }
@@ -86,6 +96,23 @@ export const useUserStore = defineStore('user', () => {
     return true
   }
 
+  // 刷新 token（如果有刷新接口）
+  const refreshToken = async (): Promise<boolean> => {
+    try {
+      // 如果有刷新 token 的接口
+      // const response = await musicApi.refreshToken()
+      // if (response.success) {
+      //   token.value = response.data.token
+      //   localStorage.setItem('music_token', response.data.token)
+      //   return true
+      // }
+      return false
+    } catch (error) {
+      console.error('刷新 token 失败:', error)
+      return false
+    }
+  }
+
   // 初始化
   initFromStorage()
 
@@ -100,6 +127,7 @@ export const useUserStore = defineStore('user', () => {
     userLogout,
     clearUserInfo,
     checkTokenValid,
-    initFromStorage
+    refreshToken,
+    initFromStorage,
   }
 })

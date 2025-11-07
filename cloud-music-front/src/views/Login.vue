@@ -59,13 +59,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const route = useRoute()
 const loginFormRef = ref<FormInstance>()
 const loading = ref(false)
 const userStore = useUserStore()
@@ -105,26 +106,71 @@ const handleLogin = async () => {
 
     if (response.success) {
       ElMessage.success(response.message || '登录成功')
-      router.push('/')
+
+      // 登录成功后跳转逻辑
+      const redirect = route.query.redirect as string
+      if (redirect) {
+        // 跳转到之前访问的页面
+        router.push(redirect)
+      } else {
+        // 跳转到首页
+        router.push('/')
+      }
     } else {
       ElMessage.error(response.message || '登录失败')
     }
   } catch (error: any) {
     console.error('登录失败:', error)
-    ElMessage.error(error.message || '登录失败，请稍后重试')
+    // 错误信息已经在 userLogin 方法中显示，这里可以不用重复显示
   } finally {
     loading.value = false
   }
 }
 
-// 检查是否已登录，如果已登录则跳转到首页
+// 检查登录状态和 Token 过期重定向
 const checkLoginStatus = () => {
+  // 如果已登录，直接跳转到首页或目标页面
   if (userStore.isLoggedIn) {
-    router.push('/')
+    const redirect = route.query.redirect as string
+    if (redirect) {
+      router.push(redirect)
+    } else {
+      router.push('/')
+    }
+    return
+  }
+
+  // 检查是否有 Token 过期的重定向
+  const tokenExpired = route.query.tokenExpired
+  if (tokenExpired) {
+    ElMessage.warning('登录状态已过期，请重新登录')
+
+    // 清除可能的过期 token
+    userStore.clearUserInfo()
+  }
+
+  // 检查是否有未登录访问的重定向
+  const unauthorized = route.query.unauthorized
+  if (unauthorized) {
+    ElMessage.warning('请先登录以访问该页面')
   }
 }
 
-checkLoginStatus()
+// 页面加载时检查登录状态
+onMounted(() => {
+  checkLoginStatus()
+})
+
+// 监听路由变化，处理登录状态
+import { watch } from 'vue'
+watch(
+  () => route.query,
+  (newQuery) => {
+    if (newQuery.tokenExpired || newQuery.unauthorized) {
+      checkLoginStatus()
+    }
+  }
+)
 </script>
 
 <style scoped>

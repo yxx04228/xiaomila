@@ -1,4 +1,8 @@
+// utils/request.js
 import axios from 'axios'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useUserStore } from '@/stores/user'
+import router from '@/router'
 
 // 创建axios实例
 const request = axios.create({
@@ -19,7 +23,7 @@ const musicRequest = axios.create({
 })
 
 // 请求拦截器 - 通用
-const requestInterceptor = (config: any) => {
+const requestInterceptor = (config) => {
   // 添加token
   const token = localStorage.getItem('music_token')
   if (token) {
@@ -42,41 +46,82 @@ const requestInterceptor = (config: any) => {
 request.interceptors.request.use(requestInterceptor)
 musicRequest.interceptors.request.use(requestInterceptor)
 
-// 响应拦截器 - 通用
-const responseInterceptor = (response: any) => {
+// 响应拦截器 - 成功处理
+const responseInterceptor = (response) => {
   return response.data
 }
 
-const errorInterceptor = (error: any) => {
+// 响应拦截器 - 错误处理
+const errorInterceptor = (error) => {
   console.error('请求失败:', error)
 
-  // 超时错误特殊处理
-  if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
-    console.error('请求超时，请检查网络连接')
-    // 可以在这里添加重试逻辑
-  }
+  const userStore = useUserStore()
 
+  // 处理响应错误
   if (error.response) {
-    switch (error.response.status) {
-      case 401:
-        console.error('未授权，请重新登录')
-        break
+    const { status, data } = error.response
+
+    // Token 过期或无效处理
+    if (
+      status === 401 ||
+      (data &&
+        data.message &&
+        (data.message.includes('Token已过期') ||
+          data.message.includes('Token过期') ||
+          data.message.includes('Token格式错误') ||
+          data.message.includes('Token签名验证失败') ||
+          data.message.includes('Token验证失败')))
+    ) {
+      // 避免重复弹窗
+      if (!error.config._retry) {
+        error.config._retry = true
+
+        // 清除用户信息
+        userStore.clearUserInfo()
+
+        // 显示过期提示
+        ElMessageBox.confirm('登录状态已过期，请重新登录', '系统提示', {
+          confirmButtonText: '重新登录',
+          cancelButtonText: '取消',
+          type: 'warning',
+        })
+          .then(() => {
+            // 跳转到登录页
+            router.push('/login')
+          })
+          .catch(() => {
+            // 用户取消，不做任何操作
+          })
+      }
+      return Promise.reject(error)
+    }
+
+    // 其他 HTTP 状态码处理
+    switch (status) {
       case 403:
-        console.error('拒绝访问')
+        ElMessage.error('拒绝访问')
         break
       case 404:
-        console.error('请求地址不存在')
+        ElMessage.error('请求地址不存在')
         break
       case 500:
-        console.error('服务器内部错误')
+        ElMessage.error('服务器内部错误')
         break
       default:
-        console.error('请求失败:', error.response.status)
+        if (data && data.message) {
+          ElMessage.error(data.message)
+        } else {
+          ElMessage.error('请求失败')
+        }
     }
+  }
+  // 处理网络错误
+  else if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
+    ElMessage.error('请求超时，请检查网络连接')
   } else if (error.request) {
-    console.error('网络错误，请检查网络连接')
+    ElMessage.error('网络错误，请检查网络连接')
   } else {
-    console.error('请求配置错误:', error.message)
+    ElMessage.error('请求配置错误')
   }
 
   return Promise.reject(error)
