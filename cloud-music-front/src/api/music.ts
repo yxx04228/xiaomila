@@ -44,4 +44,13 @@ export const musicApi = {
       params: { id },
     })
   },
+
+  // 专门生成封面URL的函数
+  getCoverUrl: (id: string): string => {
+    const token = localStorage.getItem('music_token')
+
+    return `/api/music/cover?id=${id}&t=${Date.now()}${
+      token ? `&token=${encodeURIComponent(token)}` : ''
+    }`
+  },
 }

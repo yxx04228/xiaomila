@@ -1,4 +1,4 @@
-// utils/request.js
+// utils/request.ts
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
@@ -16,7 +16,6 @@ const request = axios.create({
 // 创建专门用于音乐播放的实例（不设置默认超时）
 const musicRequest = axios.create({
   baseURL: '/api',
-  // 不设置默认超时，在具体请求中设置
   headers: {
     'Content-Type': 'application/json',
   },
@@ -46,37 +45,32 @@ const requestInterceptor = (config) => {
 request.interceptors.request.use(requestInterceptor)
 musicRequest.interceptors.request.use(requestInterceptor)
 
-// 响应拦截器 - 成功处理
+// 响应拦截器 - 统一处理成功和业务错误
 const responseInterceptor = (response) => {
-  return response.data
-}
+  const data = response.data
 
-// 响应拦截器 - 错误处理
-const errorInterceptor = (error) => {
-  console.error('请求失败:', error)
-
-  const userStore = useUserStore()
-
-  // 处理响应错误
-  if (error.response) {
-    const { status, data } = error.response
-
+  // 检查业务逻辑是否成功
+  if (data && data.success === false) {
     // Token 过期或无效处理
     if (
-      status === 401 ||
-      (data &&
-        data.message &&
-        (data.message.includes('Token已过期') ||
-          data.message.includes('Token过期') ||
-          data.message.includes('Token格式错误') ||
-          data.message.includes('Token签名验证失败') ||
-          data.message.includes('Token验证失败')))
+      data.message &&
+      (data.message.includes('Token已过期') ||
+        data.message.includes('Token过期') ||
+        data.message.includes('Token格式错误') ||
+        data.message.includes('Token签名验证失败') ||
+        data.message.includes('Token验证失败') ||
+        data.message.includes('无效的token') ||
+        data.message.includes('token失效') ||
+        data.message.includes('缺少访问令牌'))
     ) {
+      console.log('检测到Token错误，直接处理')
+
       // 避免重复弹窗
-      if (!error.config._retry) {
-        error.config._retry = true
+      if (!response.config._retry) {
+        response.config._retry = true
 
         // 清除用户信息
+        const userStore = useUserStore()
         userStore.clearUserInfo()
 
         // 显示过期提示
@@ -86,8 +80,56 @@ const errorInterceptor = (error) => {
           type: 'warning',
         })
           .then(() => {
-            // 跳转到登录页
-            router.push('/login')
+            // 跳转到登录页，带上重定向参数
+            const currentPath = router.currentRoute.value.fullPath
+            router.push(`/login?redirect=${encodeURIComponent(currentPath)}&tokenExpired=true`)
+          })
+          .catch(() => {
+            // 用户取消，不做任何操作
+          })
+      }
+
+      // 返回一个永远不会resolve的Promise，阻止后续then执行
+      return new Promise(() => {})
+    }
+
+    // 其他业务错误，抛出异常让catch块处理
+    const error = new Error(data.message || '请求失败')
+    return Promise.reject(error)
+  }
+
+  // 成功响应，直接返回数据
+  return data
+}
+
+// 响应拦截器 - 错误处理（只处理网络错误和HTTP错误）
+const errorInterceptor = (error) => {
+  console.error('请求失败:', error)
+
+  // 处理响应错误
+  if (error.response) {
+    const { status, data } = error.response
+
+    // HTTP 401 错误处理
+    if (status === 401) {
+      // 避免重复弹窗
+      if (!error.config._retry) {
+        error.config._retry = true
+
+        // 清除用户信息
+        const userStore = useUserStore()
+        userStore.clearUserInfo()
+
+        // 显示过期提示
+        ElMessageBox.confirm('登录状态已过期，请重新登录', '系统提示', {
+          confirmButtonText: '重新登录',
+          cancelButtonText: '取消',
+          type: 'warning',
+        })
+          .then(() => {
+            // 跳转到登录页，带上重定向参数
+            const currentPath = router.currentRoute.value.fullPath
+            router.push(`/login?redirect=${encodeURIComponent(currentPath)}&tokenExpired=true`)
           })
           .catch(() => {
             // 用户取消，不做任何操作
@@ -108,11 +150,7 @@ const errorInterceptor = (error) => {
         ElMessage.error('服务器内部错误')
         break
       default:
-        if (data && data.message) {
-          ElMessage.error(data.message)
-        } else {
-          ElMessage.error('请求失败')
-        }
+        ElMessage.error('请求失败')
     }
   }
   // 处理网络错误
@@ -121,7 +159,7 @@ const errorInterceptor = (error) => {
   } else if (error.request) {
     ElMessage.error('网络错误，请检查网络连接')
   } else {
-    ElMessage.error('请求配置错误')
+    ElMessage.error(error.message || '请求配置错误')
   }
 
   return Promise.reject(error)

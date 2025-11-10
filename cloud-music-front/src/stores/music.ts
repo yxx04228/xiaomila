@@ -52,7 +52,7 @@ export const useMusicStore = defineStore('music', () => {
     }
 
     // 生成封面URL
-    const coverUrl = `/api/music/cover?id=${music.id}&t=${Date.now()}`
+    const coverUrl = musicApi.getCoverUrl(music.id)
     coverUrlCache.value.set(music.id, coverUrl)
     return coverUrl
   })
