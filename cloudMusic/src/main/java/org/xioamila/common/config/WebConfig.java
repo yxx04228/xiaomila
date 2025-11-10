@@ -15,16 +15,29 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(jwtInterceptor)
-                // 重点：添加 /user/** 路径，覆盖用户相关接口
                 .addPathPatterns("/**")
                 .excludePathPatterns(
-                        // 注意：登录/注册接口路径是 /user/login 和 /user/register，需要排除！
+                        // 业务接口
                         "/user/login",
                         "/user/register",
+                        "/newWork/health",
+
+                        // Swagger UI 界面
                         "/swagger-ui/**",
-                        "/v2/api-docs",
+                        "/swagger-ui.html",
+
+                        // Swagger 资源
                         "/swagger-resources/**",
-                        "/webjars/**"
+                        "/webjars/**",
+                        "/v2/api-docs",
+
+                        // SpringDoc OpenAPI 3
+                        "/v3/api-docs/**",
+                        "/swagger-config",
+                        "/doc.html",
+
+                        // 静态资源
+                        "/error"
                 );
     }
 }
