@@ -124,8 +124,6 @@ public class AuditInterceptor implements Interceptor {
                 // 插入操作：设置创建和更新字段
                 setFieldValue(entity, clazz, "createTime", now);
                 setFieldValue(entity, clazz, "createBy", userId);
-                setFieldValue(entity, clazz, "updateTime", now);
-                setFieldValue(entity, clazz, "updateBy", userId);
             } else {
                 // 更新操作：只设置更新字段
                 setFieldValue(entity, clazz, "updateTime", now);
