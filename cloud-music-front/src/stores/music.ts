@@ -107,38 +107,38 @@ export const useMusicStore = defineStore('music', () => {
     audio.loop = loopMode.value === 'one'
 
     // 添加事件监听器
-    audio.addEventListener('loadedmetadata', () => {
-      duration.value = audio.duration
-      console.log('音频元数据加载完成，时长:', duration.value)
-    })
+    // audio.addEventListener('loadedmetadata', () => {
+    //   duration.value = audio.duration
+    //   console.log('音频元数据加载完成，时长:', duration.value)
+    // })
 
-    audio.addEventListener('timeupdate', () => {
-      currentTime.value = audio.currentTime
-    })
+    // audio.addEventListener('timeupdate', () => {
+    //   currentTime.value = audio.currentTime
+    // })
 
-    audio.addEventListener('ended', () => {
-      handlePlayEnd()
-    })
+    // audio.addEventListener('ended', () => {
+    //   handlePlayEnd()
+    // })
 
-    audio.addEventListener('error', (e) => {
-      console.error('音频播放错误:', e)
-      isPlaying.value = false
-      audioLoading.value = false
-    })
+    // audio.addEventListener('error', (e) => {
+    //   console.error('音频播放错误:', e)
+    //   isPlaying.value = false
+    //   audioLoading.value = false
+    // })
 
-    audio.addEventListener('loadstart', () => {
-      audioLoading.value = true
-      console.log('开始加载音频...')
-    })
+    // audio.addEventListener('loadstart', () => {
+    //   audioLoading.value = true
+    //   console.log('开始加载音频...')
+    // })
 
-    audio.addEventListener('canplay', () => {
-      audioLoading.value = false
-      console.log('音频可以播放了')
-    })
+    // audio.addEventListener('canplay', () => {
+    //   audioLoading.value = false
+    //   console.log('音频可以播放了')
+    // })
 
-    audio.addEventListener('canplaythrough', () => {
-      console.log('音频可以完整播放了')
-    })
+    // audio.addEventListener('canplaythrough', () => {
+    //   console.log('音频可以完整播放了')
+    // })
 
     // 标记音频元素为就绪状态
     audioElementReady.value = true
@@ -371,24 +371,24 @@ export const useMusicStore = defineStore('music', () => {
   }
 
   // 播放结束处理
-  const handlePlayEnd = () => {
-    if (loopMode.value === 'one') {
-      // 单曲循环，重新播放
-      if (audioElement.value) {
-        audioElement.value.currentTime = 0
-        audioElement.value.play().catch((error) => {
-          console.warn('循环播放失败:', error)
-        })
-      }
-    } else if (loopMode.value === 'all' && musicList.value.length > 0) {
-      // 列表循环，播放下一首
-      playNext()
-    } else {
-      // 不循环，停止播放
-      isPlaying.value = false
-      currentTime.value = 0
-    }
-  }
+  // const handlePlayEnd = () => {
+  //   if (loopMode.value === 'one') {
+  //     // 单曲循环，重新播放
+  //     if (audioElement.value) {
+  //       audioElement.value.currentTime = 0
+  //       audioElement.value.play().catch((error) => {
+  //         console.warn('循环播放失败:', error)
+  //       })
+  //     }
+  //   } else if (loopMode.value === 'all' && musicList.value.length > 0) {
+  //     // 列表循环，播放下一首
+  //     playNext()
+  //   } else {
+  //     // 不循环，停止播放
+  //     isPlaying.value = false
+  //     currentTime.value = 0
+  //   }
+  // }
 
   // 播放下一首
   const playNext = async () => {

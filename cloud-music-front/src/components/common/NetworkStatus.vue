@@ -77,7 +77,7 @@ setInterval(() => {
   if (navigator.onLine && !showError.value) {
     checkNetwork()
   }
-}, 30000) // 每30秒检查一次
+}, 600000) // 每十分钟检查一次
 </script>
 
 <style scoped>

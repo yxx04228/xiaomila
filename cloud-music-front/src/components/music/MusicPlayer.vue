@@ -138,6 +138,8 @@
       @error="handleError"
       @loadstart="handleLoadStart"
       @canplay="handleCanPlay"
+      @play="handlePlay"
+      @pause="handlePause"
       preload="none"
       controls
       style="display: none"
@@ -295,6 +297,21 @@ const handleLoadedMetadata = () => {
 
 const handleCanPlay = () => {
   console.log('音频可以播放了')
+}
+
+// 播放状态同步事件处理
+const handlePlay = () => {
+  console.log('音频开始播放（可能是外部触发的）')
+  // 同步播放状态到 store
+  isPlaying.value = true
+  musicStore.isPlaying = true
+}
+
+const handlePause = () => {
+  console.log('音频暂停（可能是外部触发的）')
+  // 同步暂停状态到 store
+  isPlaying.value = false
+  musicStore.isPlaying = false
 }
 
 const handleTimeUpdate = () => {

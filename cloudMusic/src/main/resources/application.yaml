@@ -123,7 +123,7 @@ cover:
 
 jwt:
     secret: KXp4s8F3j9MwqBvT6nRcY7Vh2zLk5gPfA
-    expiration: 10000
+    expiration: 86400000 # 24小时
     header: "X-Access-Token"
 
 app:
