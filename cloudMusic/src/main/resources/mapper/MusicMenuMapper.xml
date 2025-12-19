@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="org.xioamila.mapper.MusicMenuMapper">
+    <select id="getPageList" resultType="org.xioamila.vo.MenuVo">
+        SELECT mm.id, mm.title, n.music_count
+        FROM music_menu mm
+        LEFT JOIN (
+            SELECT mm.id, count(1) AS music_count
+            FROM music_menu_relation mmr
+            INNER JOIN music_menu mm ON mm.deleted = '0' AND mm.id = mmr.menu_id
+            INNER JOIN music m ON m.deleted = '0' AND m.id = mmr.music_id
+            WHERE mmr.deleted = '0'
+            GROUP BY mm.id
+        ) n ON n.id = mm.id
+        WHERE mm.deleted = '0' AND mm.create_by = #{musicMenu.createBy}
+        <if test="musicMenu.title != null and musicMenu.title != ''">
+            AND mm.title LIKE CONCAT('%', #{musicMenu.title}, '%')
+        </if>
+        ORDER BY mm.create_time DESC
+    </select>
+</mapper>

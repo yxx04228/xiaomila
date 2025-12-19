@@ -31,7 +31,7 @@ public class UserController {
 
     @PostMapping("/login")
     @Operation(summary = "用户登录")
-    public Result<LoginVo> login(@RequestBody LoginDto loginDto) {
+    public Result<LoginVo> login(@Valid @RequestBody LoginDto loginDto) {
         return userService.login(loginDto);
     }
 
@@ -68,7 +68,7 @@ public class UserController {
 
     @DeleteMapping("/delete")
     @Operation(summary = "删除用户")
-    public Result<Boolean> deleteUser(@Parameter(description = "用户ID") @RequestParam("id") String id) {
+    public Result<Boolean> deleteUser(@Parameter(description = "用户ID", required = true) @RequestParam("id") String id) {
         return Result.data(userService.removeById(id));
     }
 }

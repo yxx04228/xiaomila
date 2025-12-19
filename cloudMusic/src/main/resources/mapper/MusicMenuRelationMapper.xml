@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="org.xioamila.mapper.MusicMenuRelationMapper">
+    <select id="listMusic" resultType="org.xioamila.vo.MenuMusicVo">
+        SELECT mmr.id, mmr.menu_id, mmr.music_id, mmr.position,
+               mm.title AS menu_title,
+               m.title AS music_title, m.singer, m.album, m.duration, m.file_size, m.download_count
+        FROM music_menu_relation mmr
+        INNER JOIN music_menu mm ON mm.deleted = '0' AND mm.id = mmr.menu_id
+        INNER JOIN music m ON m.deleted = '0' AND m.id = mmr.music_id
+        WHERE mmr.deleted = '0' AND mmr.menu_id = #{menuId}
+        <if test="music.title != null and music.title != ''">
+            AND m.title LIKE CONCAT('%', #{music.title}, '%')
+        </if>
+        <if test="music.singer != null and music.singer != ''">
+            AND m.singer LIKE CONCAT('%', #{music.singer}, '%')
+        </if>
+        ORDER BY mmr.position ASC
+    </select>
+</mapper>
